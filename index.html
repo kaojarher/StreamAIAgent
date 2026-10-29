@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>小蝦 v4 · 多角色工作流</title>
+<title>小蝦 v4.1 · 多角色工作流</title>
 <style>
 :root{--bg:#f3f5f4;--panel:#fff;--ink:#17211f;--mute:#5d6b67;--line:#d6dddb;--accent:#0f6b5c;--accent-ink:#fff;--tool:#eef3f1;--warn:#a8431f;--soft:#e3efe9}
 @media (prefers-color-scheme:dark){:root{--bg:#121816;--panel:#1a2320;--ink:#e6eeeb;--mute:#93a39e;--line:#2b3733;--accent:#4fc3a8;--accent-ink:#06211b;--tool:#202b28;--warn:#e88b65;--soft:#22342e}}
@@ -128,11 +128,12 @@ function sample(){
 const fld=(p,label,val,type="text")=>`<label>${label}<input type="${type}" data-p="${p}" value="${esc(val)}"></label>`;
 const area=(p,label,val,rows=3)=>`<label>${label}<textarea rows="${rows}" data-p="${p}">${esc(val)}</textarea></label>`;
 const provSel=(p,v)=>`<label>服務類型<select data-p="${p}" data-prov="${p}"><option value="puter"${v=="puter"?" selected":""}>Puter（puter.js，免填 Key）</option><option value="openai"${v=="openai"?" selected":""}>OpenAI 相容</option><option value="anthropic"${v=="anthropic"?" selected":""}>Anthropic</option><option value="ollama"${v=="ollama"?" selected":""}>Ollama（本機）</option></select></label>`;
-const llmFields=(p,o)=>provSel(p+".prov",o.prov)+(o.prov==="puter"?"":fld(p+".base","API 網址",o.base)+fld(p+".key","API Key",o.key,"password"))+fld(p+".model","模型名稱",o.model);
+const tmSel=(p,v)=>`<label>工具呼叫方式<select data-p="${p}.tm"><option value="">自動（不支援時改用提示詞）</option><option value="native"${v=="native"?" selected":""}>原生 function calling</option><option value="prompt"${v=="prompt"?" selected":""}>提示詞模式（模型不支援 tools 時用）</option></select></label>`;
+const llmFields=(p,o)=>provSel(p+".prov",o.prov)+(o.prov==="puter"?"":fld(p+".base","API 網址",o.base)+fld(p+".key","API Key",o.key,"password"))+fld(p+".model","模型名稱",o.model)+(o.prov==="puter"?"":tmSel(p,o.tm));
 
 function render(){
   const L0=S.llms[S.cl],f=S.flows[S.cf],roleOpts=v=>S.roles.map(r=>`<option value="${r.id}"${r.id==v?" selected":""}>${esc(r.name)}</option>`).join("");
-  $("#side").innerHTML=`<h1>小蝦 v4 · 工作流</h1>
+  $("#side").innerHTML=`<h1>小蝦 v4.1 · 工作流</h1>
   <section><details open><summary>資料匣</summary>
     <button class="pri" data-act="pick" style="width:100%;margin-top:6px">選擇開放的資料匣</button>
     <div class="folder ${root?"":"bad"}">${esc(rootMsg)}</div>
@@ -261,8 +262,8 @@ async function post(url,headers,body){
     throw new Error("HTTP "+r.status+"："+t.slice(0,300));
   }}
 function loadPuter(){return window.puter?Promise.resolve():new Promise((ok,no)=>{const s=document.createElement("script");s.src="https://js.puter.com/v2/";s.onload=ok;s.onerror=()=>no(new Error("無法載入 puter.js，請確認網路連線"));document.head.append(s)})}
-async function puterChat(c,h,tools,sys){
-  await loadPuter();
+async function promptChat(c,h,tools,sys){
+  if(c.prov==="puter")await loadPuter();
   let s=sys;
   if(tools.length)s+="\n\n你可以呼叫工具。需要時只輸出下列格式的區塊（可多個），輸出後立刻停止，等待結果：\n```tool\n{\"name\":\"工具名\",\"args\":{\"參數\":\"值\"}}\n```\n可用工具：\n"+tools.map(t=>"- "+t.name+"（"+t.description+"）參數："+Object.keys(t.props).join("、")).join("\n");
   const msgs=[{role:"system",content:s}];
@@ -271,16 +272,38 @@ async function puterChat(c,h,tools,sys){
     else if(m.r==="a")msgs.push({role:"assistant",content:(m.t||"")+(m.calls||[]).map(x=>"\n```tool\n"+JSON.stringify({name:x.name,args:x.args})+"\n```").join("")});
     else msgs.push({role:"user",content:"【工具結果】\n"+m.results.map(r=>r.name+"：\n"+r.out).join("\n---\n")});
   }
-  const r=await puter.ai.chat(msgs,{model:c.model});
-  if(ctl&&ctl.signal.aborted){const e=new Error("abort");e.name="AbortError";throw e}
-  const c0=r&&r.message?r.message.content:r;
-  let t=typeof c0==="string"?c0:Array.isArray(c0)?c0.map(x=>x.text||"").join(""):String(r);
+  let t;
+  if(c.prov==="puter"){
+    const r=await puter.ai.chat(msgs,{model:c.model});
+    if(ctl&&ctl.signal.aborted){const e=new Error("abort");e.name="AbortError";throw e}
+    const c0=r&&r.message?r.message.content:r;
+    t=typeof c0==="string"?c0:Array.isArray(c0)?c0.map(x=>x.text||"").join(""):String(r);
+  }else{
+    const base=c.base.replace(/\/+$/,"");
+    if(c.prov==="anthropic"){
+      const j=await post(base+"/v1/messages",{"x-api-key":c.key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},{model:c.model,max_tokens:4096,system:s,messages:msgs.slice(1)});
+      t=j.content.filter(x=>x.type==="text").map(x=>x.text).join("\n");
+    }else{
+      const j=await post(base+"/chat/completions",c.key?{Authorization:"Bearer "+c.key}:{},{model:c.model,messages:msgs});
+      t=j.choices[0].message.content||"";
+    }
+  }
   const calls=[];
   t=t.replace(/```tool\s*([\s\S]*?)```/g,(_,j)=>{try{const o=JSON.parse(j);if(o.name)calls.push({id:uid(),name:o.name,args:o.args||{}})}catch(e){}return""}).trim();
   return{t,calls};
 }
 async function llm(c,h,tools,sys){
-  if(c.prov==="puter")return puterChat(c,h,tools,sys);
+  if(c.prov==="puter"||(tools.length&&c.tm==="prompt"))return promptChat(c,h,tools,sys);
+  try{return await nativeLlm(c,h,tools,sys)}
+  catch(e){
+    if(tools.length&&c.tm!=="native"&&/does not support tool|not support tool|tools? (is |are )?not supported|不支援/i.test(e.message)){
+      c.tm="prompt";save();L("s","「"+c.name+"」的模型不支援原生工具呼叫，已自動改用提示詞模式（已記住，可在 AI 設定中修改）。");
+      return promptChat(c,h,tools,sys);
+    }
+    throw e;
+  }
+}
+async function nativeLlm(c,h,tools,sys){
   const base=c.base.replace(/\/+$/,"");
   if(c.prov==="anthropic"){
     const msgs=h.map(m=>m.r==="u"?{role:"user",content:m.t}:m.r==="a"?{role:"assistant",content:[...(m.t?[{type:"text",text:m.t}]:[]),...(m.calls||[]).map(x=>({type:"tool_use",id:x.id,name:x.name,input:x.args}))]}:{role:"user",content:m.results.map(r=>({type:"tool_result",tool_use_id:r.id,content:r.out}))});
@@ -291,25 +314,11 @@ async function llm(c,h,tools,sys){
   }
   const msgs=[{role:"system",content:sys}];
   for(const m of h){if(m.r==="u")msgs.push({role:"user",content:m.t});else if(m.r==="a"){const o={role:"assistant",content:m.t||null};if(m.calls&&m.calls.length)o.tool_calls=m.calls.map(x=>({id:x.id,type:"function",function:{name:x.name,arguments:JSON.stringify(x.args)}}));msgs.push(o)}else m.results.forEach(r=>msgs.push({role:"tool",tool_call_id:r.id,content:r.out}))}
-  
   const body={model:c.model,messages:msgs};
-  if(tools.length && c.prov !== "ollama" && !c.base.includes("localhost:8080")){
-    body.tools=tools.map(t=>({type:"function",function:{name:t.name,description:t.description,parameters:{type:"object",properties:t.props,required:t.req}}}));
-  }
-
-  try {
-    const j=await post(base+"/chat/completions",c.key?{Authorization:"Bearer "+c.key}:{},body);
-    const m=j.choices[0].message;
-    return{t:m.content||"",calls:(m.tool_calls||[]).map(x=>{let g={};try{g=JSON.parse(x.function.arguments||"{}")}catch(e){}return{id:x.id,name:x.function.name,args:g}})};
-  } catch(err) {
-    if(err.message.includes("500") && tools.length > 0) {
-      delete body.tools;
-      const j=await post(base+"/chat/completions",c.key?{Authorization:"Bearer "+c.key}:{},body);
-      const m=j.choices[0].message;
-      return{t:m.content||"",calls:[]};
-    }
-    throw err;
-  }
+  if(tools.length)body.tools=tools.map(t=>({type:"function",function:{name:t.name,description:t.description,parameters:{type:"object",properties:t.props,required:t.req}}}));
+  const j=await post(base+"/chat/completions",c.key?{Authorization:"Bearer "+c.key}:{},body);
+  const m=j.choices[0].message;
+  return{t:m.content||"",calls:(m.tool_calls||[]).map(x=>{let g={};try{g=JSON.parse(x.function.arguments||"{}")}catch(e){}return{id:x.id,name:x.function.name,args:g}})};
 }
 
 /* ---------- 單一角色執行 ---------- */
