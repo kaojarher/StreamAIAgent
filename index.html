@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>小蝦 v6 · 多角色工作流</title>
+<title>小蝦 v7 · 多角色工作流</title>
 <style>
 :root{--bg:#f3f5f4;--panel:#fff;--ink:#17211f;--mute:#5d6b67;--line:#d6dddb;--accent:#0f6b5c;--accent-ink:#fff;--tool:#eef3f1;--warn:#a8431f;--soft:#e3efe9}
 @media (prefers-color-scheme:dark){:root{--bg:#121816;--panel:#1a2320;--ink:#e6eeeb;--mute:#93a39e;--line:#2b3733;--accent:#4fc3a8;--accent-ink:#06211b;--tool:#202b28;--warn:#e88b65;--soft:#22342e}}
@@ -85,6 +85,35 @@ input,select,textarea{font-size:16px}button{min-height:40px}
 .bar .acts>*{flex:1 1 140px}
 #log{padding:12px}.bar textarea{height:48px}.m.md .body{max-height:55dvh}#prog{padding:8px 12px}
 }
+.helpbtn{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:50;width:38px;height:38px;min-height:0;padding:0;border-radius:50%;background:var(--accent);color:var(--accent-ink);border:0;font-weight:700;font-size:18px;line-height:1;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.help{position:fixed;inset:0;z-index:100}
+.help[hidden]{display:none}
+.help.dim{background:rgba(0,0,0,.55)}
+.spot{position:fixed;z-index:1;border-radius:10px;pointer-events:none;box-shadow:0 0 0 3px var(--accent),0 0 0 100vmax rgba(0,0,0,.55);transition:left .25s,top .25s,width .25s,height .25s;animation:spotp 1.6s ease-in-out infinite}
+.spot[hidden]{display:none}
+@keyframes spotp{50%{box-shadow:0 0 0 7px var(--accent),0 0 0 100vmax rgba(0,0,0,.55)}}
+@media (prefers-reduced-motion:reduce){.spot{animation:none;transition:none}}
+.hbox{position:absolute;z-index:2;left:0;top:0;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:12px;width:min(440px,calc(100vw - 24px));display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.35)}
+.harr{position:absolute;width:12px;height:12px;background:var(--panel);border:0 solid var(--line);transform:rotate(45deg)}
+.harr[hidden]{display:none}
+.harr.al{left:-7px;border-left-width:1px;border-bottom-width:1px}
+.harr.au{top:-7px;border-top-width:1px;border-left-width:1px}
+.harr.ad{bottom:-7px;border-right-width:1px;border-bottom-width:1px}
+.harr.ar{right:-7px;border-top-width:1px;border-right-width:1px}
+.hhead{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:14px 18px 8px}
+.hhead h2{margin:0;font-size:17px}
+.hbody{padding:4px 18px 8px;overflow:auto;flex:1;min-height:0}
+.hbody p,.hbody ul{margin:.5em 0}.hbody ul{padding-left:1.3em}.hbody li{margin:.3em 0}
+.hbody kbd{font:inherit;font-size:12px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:var(--tool)}
+.hbody code{background:var(--tool);padding:0 4px;border-radius:4px}
+.hbody .tip{background:var(--soft);border-left:3px solid var(--accent);border-radius:4px;padding:6px 10px;font-size:13px}
+.hbody .where{display:inline-block;font-size:12px;font-weight:700;color:var(--accent-ink);background:var(--accent);border-radius:999px;padding:0 10px;margin:0 0 4px}
+.hfoot{display:flex;align-items:center;gap:8px;padding:10px 18px 14px;border-top:1px solid var(--line);flex-wrap:wrap}
+.hdots{display:flex;gap:2px;flex:1;justify-content:center;align-items:center;flex-wrap:wrap}
+.dot{width:14px;height:14px;min-height:0;padding:0;border-radius:50%;border:0;background:none;position:relative}
+.dot::before{content:"";position:absolute;inset:2px;border-radius:50%;border:1px solid var(--accent)}
+.dot.on::before{background:var(--accent)}
+.hcount{font-size:12px;color:var(--mute)}
 </style>
 </head>
 <body data-v="set">
@@ -103,6 +132,22 @@ input,select,textarea{font-size:16px}button{min-height:40px}
   <div id="prog" hidden><div class="pbar"><i id="pfill"></i></div><div class="srow"><div id="stat"></div><button class="cp" id="ptog">收合便利貼</button></div><div id="chips"></div></div>
   <div id="log"></div>
 </main>
+
+<button id="helpBtn" class="helpbtn" type="button" aria-label="使用說明" title="使用說明">?</button>
+<div id="help" class="help" hidden>
+  <div id="spot" class="spot" hidden></div>
+  <div class="hbox" role="dialog" aria-modal="true" aria-labelledby="hTitle">
+    <i class="harr" id="hArr" hidden></i>
+    <div class="hhead"><h2 id="hTitle"></h2><span class="hcount" id="hCount"></span></div>
+    <div class="hbody" id="hBody"></div>
+    <div class="hfoot">
+      <button id="hSkip" type="button">結束導覽</button>
+      <div class="hdots" id="hDots"></div>
+      <button id="hPrev" type="button">上一步</button>
+      <button id="hNext" type="button" class="pri">下一步</button>
+    </div>
+  </div>
+</div>
 
 <script>
 const $=s=>document.querySelector(s);
@@ -163,7 +208,7 @@ const llmFields=(p,o)=>provSel(p+".prov",o.prov)+(o.prov==="puter"?"":fld(p+".ba
 
 function render(){
   const L0=S.llms[S.cl],f=S.flows[S.cf],roleOpts=v=>S.roles.map(r=>`<option value="${r.id}"${r.id==v?" selected":""}>${esc(r.name)}</option>`).join("");
-  $("#side").innerHTML=`<h1>小蝦 v6 · 工作流</h1>
+  $("#side").innerHTML=`<h1>小蝦 v7 · 工作流</h1>
   <section><details open><summary>資料匣</summary>
     <button class="pri" data-act="pick" style="width:100%;margin-top:6px">選擇開放的資料匣</button>
     <div class="folder ${root?"":"bad"}">${esc(rootMsg)}</div>
@@ -533,6 +578,126 @@ async function runFlow(){
 $("#run").onclick=runFlow;
 $("#stop").onclick=()=>ctl&&ctl.abort();
 
+/* ---------- 使用說明（導覽式：亮框＋箭頭指出實際位置；首次自動顯示，右下角 ? 可重看） ---------- */
+const HELP_KEY="xlx_help_seen";
+const SEC=n=>"#side section:nth-of-type("+n+")";
+const HELP=[
+ {t:"歡迎使用小蝦 👋",h:`<p>小蝦是<b>多角色工作流</b>工具：先設定幾位「角色」（如收集員、撰稿員、審稿員），再串成「流程」，輸入總目標後，系統會依序讓每位角色處理，並把上一步的輸出交給下一步。</p>
+   <ul><li>設定都存在<b>你的瀏覽器</b>；角色只能讀寫你<b>主動開放的資料匣</b>。</li></ul>
+   <p class="tip">接下來每一步都會用<b>亮框＋箭頭</b>指出功能在畫面的哪個位置。想重看，隨時按右下角的 <b>?</b>。</p>`},
+ {t:"① 先選擇資料匣",tab:"set",tg:SEC(1),h:`<span class="where">位置：左側「設定」欄・最上方</span>
+   <p>按亮框裡綠色的<b>「選擇開放的資料匣」</b>，挑一個放工作檔的資料夾。選好後，下方會顯示「目前開放：/資料夾名」。</p>
+   <ul><li>需用 <b>Chrome 或 Edge 電腦版</b>，並直接開啟本檔案。</li><li>勾選「寫檔時不再詢問」可免去每次確認；<b>刪檔一定會詢問</b>。</li><li>重開網頁後可能要再按一次重新授權。</li></ul>`},
+ {t:"② 設定 AI",tab:"set",tg:SEC(2),h:`<span class="where">位置：左側「設定」欄・第二區「AI 設定」</span>
+   <p>預設用 <b>Puter</b>，免填 Key 就能試用。</p>
+   <ul><li><b>「預設使用」</b>下拉選單：決定沒特別指定時用哪個 AI。</li><li><b>「新增」</b>：加入 OpenAI 相容、Anthropic 或 Ollama，填網址、Key、模型。</li><li><b>「測試連線」</b>：確認設定可用。</li></ul>
+   <p class="tip">API Key 只存在本機瀏覽器，「匯出 JSON」不會包含 Key。</p>`},
+ {t:"③ 建立角色",tab:"set",tg:SEC(3),h:`<span class="where">位置：左側「設定」欄・第三區「角色」</span>
+   <p>每個角色是一張可展開的卡片，內含：</p>
+   <ul><li><b>職責提示詞</b>：這位角色做什麼。</li><li><b>工具勾選</b>：列目錄、讀檔、寫檔…只勾必要的。</li><li><b>工作子目錄</b>：限制活動範圍（空白＝整個資料匣）。</li><li><b>使用的 AI</b>：可跟隨預設或另外指定。</li></ul>
+   <p>區塊底部的<b>「新增空白角色」</b>或<b>「從範本新增…」</b>下拉可快速建立。</p>`},
+ {t:"④ 串成流程",tab:"set",tg:SEC(4),h:`<span class="where">位置：左側「設定」欄・第四區「流程」</span>
+   <p>每個左邊有綠線的卡片就是一個<b>步驟</b>：選角色、選類型、寫本步驟任務。</p>
+   <ul><li><b>執行</b>／<b>審核</b>：審核回覆第一行須為 PASS 或 FAIL，FAIL 會退回前一個執行步驟。</li><li><b>執行前需我核准</b>：該步驟開始前暫停讓你檢查或修改。</li><li><b>與上一步並行</b>：相鄰的執行步驟同時跑。</li><li>卡片上的<b>上移／下移／刪除</b>調整順序，<b>「新增步驟」</b>加新步驟。</li></ul>`},
+ {t:"第一次用？載入範例",tab:"set",tg:'[data-act="sample"]',h:`<span class="where">位置：左側「設定」欄・最下方「範例與匯出入」</span>
+   <p>亮框處是<b>「載入範例」</b>按鈕（這一區預設收合，已幫你展開）。範例會新增 4 個角色和 1 條「資料整理 → 寫作 → 審稿」流程，改一改就能用。</p>
+   <p>旁邊的「匯出 JSON／匯入 JSON」可備份或分享你的設定。</p>`,
+  act:{label:"載入範例並繼續",fn:()=>{if(S.roles.length&&!confirm("範例會新增 4 個角色與 1 條流程，繼續？"))return;sample();render();helpGo(hi+1)}}},
+ {t:"⑤ 輸入總目標",tab:"run",tg:"#goal",h:`<span class="where">位置：右側「執行」區・最上方輸入框</span>
+   <p>在亮框的輸入框寫下這次流程的<b>總目標</b>，例如「整理 inbox 內的會議記錄，產出本週摘要」。所有步驟都會看到這句話。</p>
+   <p class="tip">手機版：畫面最上方有「設定／執行」兩個分頁可切換。</p>`},
+ {t:"⑥ 執行與控制按鈕",tab:"run",tg:".bar .acts",h:`<span class="where">位置：輸入框旁的按鈕區（手機版在輸入框下方）</span>
+   <ul><li><b>「執行流程」</b>：開始（或按 <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Enter</kbd>）；需先選好資料匣並有流程步驟，否則是灰的。執行中會變成<b>「停止」</b>。</li><li><b>「從第 N 步開始」</b>下拉：略過前面的步驟。</li><li><b>「下載紀錄」</b>：存下這次完整紀錄。</li><li><b>「歷史紀錄」</b>下拉：選擇即下載過去的紀錄。</li></ul>`},
+ {t:"⑦ 看進度、取成果",tab:"run",tg:()=>$("#prog").hidden?$("#log"):$("#prog"),h:`<span class="where">位置：輸入框下方的進度區與下方大片輸出區</span>
+   <ul><li>執行時，這裡會出現<b>便利貼進度</b>；點便利貼可跳到該步的輸出。</li><li>每步輸出都是一張卡片，底部有<b>複製、下載 MD、下載 PPTX、下載 PDF</b>。</li><li>流程結束會出現<b>「最終成果（可下載）」</b>卡片。</li></ul>
+   <p class="tip">PDF 會開啟列印視窗，請在「目的地」選「另存為 PDF」。</p>`},
+ {t:"需要時再回來看 ✔",tg:"#helpBtn",h:`<span class="where">位置：畫面右下角圓形按鈕</span>
+   <p>亮框處的<b>「?」</b>按鈕隨時可點，會從頭重新導覽一次。準備好就開始吧！</p>`}
+];
+let hi=0,hOpener=null,hTab="set";
+const helpRaw=s=>!s.tg?null:(typeof s.tg==="function"?s.tg():$(s.tg));
+function helpDraw(){
+  const s=HELP[hi],last=hi===HELP.length-1;
+  $("#hTitle").textContent=s.t;
+  $("#hBody").innerHTML=s.h+(s.act?`<p><button type="button" class="pri" id="hAct">${s.act.label}</button></p>`:"");
+  $("#hDots").innerHTML=HELP.map((x,k)=>`<button type="button" class="dot${k===hi?" on":""}" data-k="${k}" aria-label="第 ${k+1} 步：${esc(x.t)}"${k===hi?' aria-current="step"':""}></button>`).join("");
+  $("#hCount").textContent=(hi+1)+" / "+HELP.length;
+  $("#hPrev").disabled=hi===0;
+  $("#hNext").textContent=last?"開始使用":"下一步";
+  if(s.act)$("#hAct").onclick=s.act.fn;
+  $("#hBody").scrollTop=0;
+}
+function helpPlace(){
+  const box=document.querySelector(".hbox"),spot=$("#spot"),arr=$("#hArr"),help=$("#help");
+  if(help.hidden)return;
+  let el=helpRaw(HELP[hi]);if(el&&!el.getClientRects().length)el=null;
+  const vw=innerWidth,vh=innerHeight,m=12;
+  box.style.maxHeight=Math.min(vh-2*m,620)+"px";
+  const bw=box.offsetWidth,bh=box.offsetHeight;
+  if(!el){
+    spot.hidden=true;arr.hidden=true;help.classList.add("dim");
+    box.style.left=Math.max(m,(vw-bw)/2)+"px";box.style.top=Math.max(m,(vh-bh)/2)+"px";return;
+  }
+  help.classList.remove("dim");
+  const r=el.getBoundingClientRect(),p=6,g=16;
+  spot.hidden=false;
+  Object.assign(spot.style,{left:r.left-p+"px",top:r.top-p+"px",width:r.width+2*p+"px",height:r.height+2*p+"px"});
+  let x,y,cls="";
+  if(vw-r.right>=bw+g+p+m){cls="al";x=r.right+p+g;y=r.top}
+  else if(vh-r.bottom>=bh+g+p+m){cls="au";y=r.bottom+p+g;x=r.left}
+  else if(r.top>=bh+g+p+m){cls="ad";y=r.top-p-g-bh;x=r.left}
+  else if(r.left>=bw+g+p+m){cls="ar";x=r.left-p-g-bw;y=r.top}
+  else{x=(vw-bw)/2;y=vh-bh-m}
+  x=Math.min(Math.max(m,x),vw-bw-m);y=Math.min(Math.max(m,y),vh-bh-m);
+  box.style.left=x+"px";box.style.top=y+"px";
+  if(!cls){arr.hidden=true;return}
+  const cx=(Math.max(r.left,0)+Math.min(r.right,vw))/2,cy=(Math.max(r.top,0)+Math.min(r.bottom,vh))/2;
+  const cl=(v,a,b)=>Math.min(Math.max(v,a),b);
+  arr.hidden=false;arr.className="harr "+cls;arr.style.left=arr.style.top="";
+  if(cls==="al"||cls==="ar")arr.style.top=cl(cy-y-6,14,bh-26)+"px";
+  else arr.style.left=cl(cx-x-6,14,bw-26)+"px";
+}
+function helpGo(k){
+  hi=Math.max(0,Math.min(HELP.length-1,k));
+  const s=HELP[hi];
+  helpDraw();
+  if(s.tab)document.body.dataset.v=s.tab;
+  const el=helpRaw(s);
+  if(el){const d=el.closest("details");if(d&&!d.open)d.open=true}
+  helpPlace();
+  if(el){el.scrollIntoView({block:"center",inline:"nearest"});requestAnimationFrame(helpPlace);setTimeout(helpPlace,200)}
+}
+function openHelp(){
+  hOpener=document.activeElement;hTab=document.body.dataset.v;
+  $("#help").hidden=false;helpGo(0);$("#hNext").focus();
+  try{localStorage.setItem(HELP_KEY,"1")}catch(e){}
+}
+function closeHelp(){
+  $("#help").hidden=true;$("#spot").hidden=true;
+  document.body.dataset.v=hTab;
+  if(hOpener&&hOpener.focus&&document.contains(hOpener))hOpener.focus();
+}
+$("#helpBtn").onclick=openHelp;
+$("#hSkip").onclick=closeHelp;
+$("#hPrev").onclick=()=>{if(hi>0)helpGo(hi-1)};
+$("#hNext").onclick=()=>{if(hi>=HELP.length-1)closeHelp();else helpGo(hi+1)};
+$("#hDots").onclick=e=>{const b=e.target.closest(".dot");if(b)helpGo(+b.dataset.k)};
+addEventListener("resize",helpPlace);
+document.addEventListener("keydown",e=>{
+  if($("#help").hidden)return;
+  if(e.key==="Escape"){e.preventDefault();closeHelp();return}
+  if(e.key==="ArrowRight"){e.preventDefault();$("#hNext").click();return}
+  if(e.key==="ArrowLeft"){e.preventDefault();$("#hPrev").click();return}
+  if(e.key==="Tab"){
+    const f=[...$("#help").querySelectorAll("button:not([disabled])")];if(!f.length)return;
+    const a=f[0],z=f[f.length-1];
+    if(!$("#help").contains(document.activeElement)){e.preventDefault();a.focus()}
+    else if(e.shiftKey&&document.activeElement===a){e.preventDefault();z.focus()}
+    else if(!e.shiftKey&&document.activeElement===z){e.preventDefault();a.focus()}
+  }
+});
+const helpSeen=()=>{try{return localStorage.getItem(HELP_KEY)==="1"}catch(e){return true}};
+
 /* ---------- 啟動 ---------- */
 const jump=n=>{const c=[...log.querySelectorAll('[data-step="'+n.dataset.j+'"]')].pop();if(c){document.body.dataset.v="run";c.scrollIntoView({behavior:"smooth",block:"start"})}};
 $("#chips").addEventListener("click",e=>{const n=e.target.closest(".note");if(n)jump(n)});
@@ -545,6 +710,7 @@ $("#goal").addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.ctrlKey||e.meta
   const h=await hGet();
   if(h){try{if(await h.queryPermission({mode:"readwrite"})==="granted"){root=h;rootMsg="目前開放：/"+h.name}else rootMsg="「"+h.name+"」需重新授權，請再按一次選擇資料匣。"}catch(e){}}
   render();
+  if(!helpSeen())openHelp();
 })();
 </script>
 </body>
