@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>小蝦 v7.1 · 多角色工作流</title>
+<title>小蝦 v8 · 多角色工作流</title>
 <style>
 :root{--bg:#f3f5f4;--panel:#fff;--ink:#17211f;--mute:#5d6b67;--line:#d6dddb;--accent:#0f6b5c;--accent-ink:#fff;--tool:#eef3f1;--warn:#a8431f;--soft:#e3efe9}
 @media (prefers-color-scheme:dark){:root{--bg:#121816;--panel:#1a2320;--ink:#e6eeeb;--mute:#93a39e;--line:#2b3733;--accent:#4fc3a8;--accent-ink:#06211b;--tool:#202b28;--warn:#e88b65;--soft:#22342e}}
@@ -44,7 +44,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 #stat{font-size:13px;color:var(--mute);margin-top:4px}
 #chips{display:flex;gap:6px;overflow-x:auto;padding-top:6px}
 .srow{display:flex;justify-content:space-between;align-items:center;gap:8px}
-#prog.col #chips{display:none}
+#prog.col #chips{display:none}#ex{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:6px 18px;font-size:12px;color:var(--mute);background:var(--panel);border-bottom:1px solid var(--line)}
 #chips{display:flex;align-items:stretch;gap:4px;overflow-x:auto;padding:14px 6px 10px}
 .grp{display:flex;flex-direction:column;gap:14px;justify-content:center}
 .arr{align-self:center;color:var(--mute);font-size:20px;padding:0 2px}
@@ -121,14 +121,15 @@ input,select,textarea{font-size:16px}button{min-height:40px}
 <aside id="side"></aside>
 <main>
   <div class="bar">
-    <textarea id="goal" placeholder="輸入這次流程的總目標，例如：整理 inbox 內的會議記錄，產出本週摘要"></textarea>
+    <textarea id="goal" placeholder="用口語描述想做的事就好，例如：幫我比對 舊版.xlsx 和 新版.xlsx 的差異並整理成表格"></textarea>
     <div class="row acts" style="flex-direction:column;align-items:stretch">
-      <button class="pri" id="run">執行流程</button><button id="stop" hidden>停止</button>
+      <button class="pri" id="auto">智慧執行</button><button id="run">執行選定的流程</button><button id="stop" hidden>停止</button>
       <select id="from" title="起始步驟"></select>
       <button id="dl">下載紀錄</button>
       <select id="hist" title="歷史紀錄"></select>
     </div>
   </div>
+  <div id="ex"></div>
   <div id="prog" hidden><div class="pbar"><i id="pfill"></i></div><div class="srow"><div id="stat"></div><button class="cp" id="ptog">收合便利貼</button></div><div id="chips"></div></div>
   <div id="log"></div>
 </main>
@@ -177,7 +178,7 @@ const TPL=[
 /* ---------- 狀態 ---------- */
 let S={llms:[{id:"putter",name:"Putter AI",prov:"puter",base:"",key:"",model:"gpt-4o-mini"}],defLlm:"putter",cl:0,autoWrite:false,roles:[],flows:[],cf:0};
 try{const x=JSON.parse(localStorage.getItem("xlx3")||"null");if(x)S=x}catch(e){}
-const save=()=>{try{localStorage.setItem("xlx3",JSON.stringify(S))}catch(e){}};
+const save=()=>{try{const f=S.flows.filter(x=>!x.tmp);localStorage.setItem("xlx3",JSON.stringify({...S,roles:S.roles.filter(r=>!r.tmp),flows:f,cf:S.flows[S.cf]&&!S.flows[S.cf].tmp?Math.min(S.cf,f.length-1):0}))}catch(e){}};
 const llmOf=r=>S.llms.find(x=>x.id===r.llm)||S.llms.find(x=>x.id===S.defLlm)||S.llms[0];
 const llmName=id=>(S.llms.find(x=>x.id===id)||S.llms[0]).name;
 const llmOpts=v=>S.llms.map(l=>`<option value="${l.id}"${l.id==v?" selected":""}>${esc(l.name)}</option>`).join("");
@@ -213,7 +214,7 @@ const llmFields=(p,o)=>provSel(p+".prov",o.prov)+(o.prov==="puter"?"":fld(p+".ba
 
 function render(){
   const L0=S.llms[S.cl],f=S.flows[S.cf],roleOpts=v=>S.roles.map(r=>`<option value="${r.id}"${r.id==v?" selected":""}>${esc(r.name)}</option>`).join("");
-  $("#side").innerHTML=`<h1>小蝦 v7.1 · 工作流</h1>
+  $("#side").innerHTML=`<h1>小蝦 v8 · 工作流</h1>
   <section><details open><summary>資料匣</summary>
     <button class="pri" data-act="pick" style="width:100%;margin-top:6px">選擇開放的資料匣</button>
     <div class="folder ${root?"":"bad"}">${esc(rootMsg)}</div>
@@ -247,7 +248,7 @@ function render(){
     <p style="color:var(--mute);font-size:12px">匯出時不含 API Key。</p></details></section>`;
   if(!busy)chipSt=[];fillFrom();progDraw();ready();
 }
-function ready(){$("#run").disabled=busy||!root||!S.flows[S.cf]||!S.flows[S.cf].steps.length}
+function ready(){$("#run").disabled=busy||!root||!S.flows[S.cf]||!S.flows[S.cf].steps.length;$("#auto").disabled=busy||!root}
 
 /* ---------- 側欄事件 ---------- */
 const side=$("#side");
@@ -587,7 +588,7 @@ function gate(title,text){
 async function runFlow(){
   const f=S.flows[S.cf],goal=$("#goal").value.trim();
   if(!goal){alert("請先輸入總目標");return}
-  busy=true;ctl=new AbortController();$("#run").hidden=true;$("#stop").hidden=false;log.innerHTML="";document.body.dataset.v="run";
+  busy=true;ctl=new AbortController();$("#run").hidden=true;$("#auto").hidden=true;$("#stop").hidden=false;log.innerHTML="";document.body.dataset.v="run";
   const t0=Date.now(),stamp=new Date().toISOString().slice(0,16).replace(/[:T]/g,"-");
   logs=["# 執行紀錄：「"+f.name+"」\n總目標："+goal];
   let i=+$("#from").value||0,prev=i?"（從第 "+(i+1)+" 步開始，無前一步輸出）":"",work="",fb="",loops=0,lastWork=-1;
@@ -626,7 +627,7 @@ async function runFlow(){
     L("s","流程結束，共 "+((Date.now()-t0)/1000).toFixed(1)+" 秒。");finalCard(prev);
   }catch(e){L("e",e.name==="AbortError"?"已停止。":"執行失敗："+e.message+"\n請檢查 API 網址、Key、模型，以及該服務是否允許瀏覽器直接連線。")}
   pushHist(f.name,goal);
-  clearInterval(tick);chipSt=chipSt.map(x=>x==="run"?"err":x);progDraw(f);busy=false;setStat("結束，共 "+Math.floor((Date.now()-t0s)/1000)+" 秒");$("#run").hidden=false;$("#stop").hidden=true;ready();
+  clearInterval(tick);chipSt=chipSt.map(x=>x==="run"?"err":x);progDraw(f);busy=false;setStat("結束，共 "+Math.floor((Date.now()-t0s)/1000)+" 秒");$("#run").hidden=false;$("#auto").hidden=false;$("#stop").hidden=true;ready();
 }
 $("#run").onclick=runFlow;
 $("#stop").onclick=()=>ctl&&ctl.abort();
@@ -660,7 +661,7 @@ const HELP=[
    <p>在亮框的輸入框寫下這次流程的<b>總目標</b>，例如「整理 inbox 內的會議記錄，產出本週摘要」。所有步驟都會看到這句話。</p>
    <p class="tip">手機版：畫面最上方有「設定／執行」兩個分頁可切換。</p>`},
  {t:"⑥ 執行與控制按鈕",tab:"run",tg:".bar .acts",h:`<span class="where">位置：輸入框旁的按鈕區（手機版在輸入框下方）</span>
-   <ul><li><b>「執行流程」</b>：開始（或按 <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Enter</kbd>）；需先選好資料匣並有流程步驟，否則是灰的。執行中會變成<b>「停止」</b>。</li><li><b>「從第 N 步開始」</b>下拉：略過前面的步驟。</li><li><b>「下載紀錄」</b>：存下這次完整紀錄。</li><li><b>「歷史紀錄」</b>下拉：選擇即下載過去的紀錄。</li></ul>`},
+   <ul><li><b>「智慧執行」</b>：用口語寫出需求即可，系統會自動規劃步驟與工具，先讓你確認再執行（<kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Enter</kbd> 同此鍵）。</li><li><b>「執行選定的流程」</b>：執行左側已設好的流程；執行中會變成<b>「停止」</b>。</li><li><b>「從第 N 步開始」</b>下拉：略過前面的步驟。</li><li><b>「下載紀錄」</b>：存下這次完整紀錄。</li><li><b>「歷史紀錄」</b>下拉：選擇即下載過去的紀錄。</li></ul>`},
  {t:"⑦ 看進度、取成果",tab:"run",tg:()=>$("#prog").hidden?$("#log"):$("#prog"),h:`<span class="where">位置：輸入框下方的進度區與下方大片輸出區</span>
    <ul><li>執行時，這裡會出現<b>便利貼進度</b>；點便利貼可跳到該步的輸出。</li><li>每步輸出都是一張卡片，底部有<b>複製、下載 MD、下載 PPTX、下載 PDF</b>。</li><li>流程結束會出現<b>「最終成果（可下載）」</b>卡片。</li></ul>
    <p class="tip">PDF 會開啟列印視窗，請在「目的地」選「另存為 PDF」。</p>`},
@@ -751,6 +752,68 @@ document.addEventListener("keydown",e=>{
 });
 const helpSeen=()=>{try{return localStorage.getItem(HELP_KEY)==="1"}catch(e){return true}};
 
+/* ---------- 智慧規劃：口語 → 角色／工具／步驟 ---------- */
+const PLAN_SYS="你是工作流規劃師。使用者用口語描述需求，請把它轉成可執行的計畫，只輸出一個 JSON，不要其他文字。\n規則：\n1. 只能使用【可用工具】中的工具名稱。\n2. 步驟數 1 到 5，每步指定一位角色；能一步完成就不要拆。\n3. 要比對或修改 Excel 時，用 diff_xlsx、update_xlsx、read_xlsx；不可用 read_file 讀 Excel。\n4. 需要簡報時，任務中要求以 Markdown 輸出並用 --- 分頁，並寫明張數。\n5. 檔名請對照【資料匣檔案】；找不到或有歧義的檔名，放進 questions。\n6. 會修改、覆寫或刪除檔案的步驟，gate 設為 true。\n7. 若需求與【現有流程】之一相符，use_flow 填該流程名稱，steps 可為空陣列。\n8. 審核步驟 type 設為 review，且不可是第一步。\n輸出格式：{\"summary\":\"一句話說明你理解的需求\",\"use_flow\":null,\"questions\":[],\"steps\":[{\"role\":\"角色名\",\"sys\":\"角色職責\",\"tools\":[\"工具名\"],\"dir\":\"\",\"type\":\"work\",\"task\":\"本步驟具體任務，含檔名與輸出格式\",\"gate\":false}]}";
+async function snap(){const o=[];async function w(d,pre,dep){for await(const [n,h] of d.entries()){if(o.length>80)return;if(n.startsWith("."))continue;o.push(pre+n+(h.kind==="directory"?"/":""));if(h.kind==="directory"&&dep<2&&!n.startsWith("_"))await w(h,pre+n+"/",dep+1)}}await w(root,"",0);return o.join("\n")}
+async function makePlan(goal,extra){
+  ctl=new AbortController();
+  const cfg=S.llms.find(x=>x.id===S.defLlm)||S.llms[0];
+  const flows=S.flows.filter(f=>!f.tmp).map(f=>"- "+f.name+"："+f.steps.map(x=>x.task).join(" → ").slice(0,80)).join("\n")||"（無）";
+  const msg="【使用者需求】\n"+goal+(extra?"\n【補充】\n"+extra:"")+"\n\n【可用工具】\n"+TOOLS.map(t=>"- "+t.name+"："+t.description).join("\n")+"\n\n【現有流程】\n"+flows+"\n\n【資料匣檔案】\n"+((await snap())||"（空）");
+  const r=await llm(cfg,[{r:"u",t:msg}],[],PLAN_SYS);
+  const m=r.t.match(/\{[\s\S]*\}/);if(!m)throw new Error("AI 的規劃結果不是 JSON");
+  return JSON.parse(m[0]);
+}
+async function normPlan(p){
+  const q=Array.isArray(p.questions)?p.questions.map(String):[];
+  if(p.use_flow){const f=S.flows.find(x=>!x.tmp&&x.name===p.use_flow);if(f)return{summary:p.summary||f.name,flow:f,questions:q}}
+  const steps=(Array.isArray(p.steps)?p.steps:[]).slice(0,6);if(!steps.length)throw new Error("規劃沒有產生任何步驟");
+  const known=TOOLS.map(t=>t.name);
+  for(const x of steps){x.tools=(Array.isArray(x.tools)?x.tools:[]).filter(t=>known.includes(t));x.type=x.type==="review"?"review":"work";x.role=String(x.role||"助理").slice(0,20);x.task=String(x.task||"");
+    if(x.dir){try{let d=root;for(const n of parts(x.dir))d=await d.getDirectoryHandle(n)}catch(e){x.dir=""}}else x.dir=""}
+  if(steps[0].type==="review")steps[0].type="work";
+  return{summary:String(p.summary||"自動規劃"),steps,questions:q}}
+const fallbackPlan=g=>({summary:g.slice(0,30),questions:[],steps:[{role:"全能助理",sys:"你是萬用助理，先查看資料匣再動手，依需求選擇合適的工具。Excel 檔用 read_xlsx、diff_xlsx、update_xlsx，不要用 read_file。",tools:/xlsx?|excel|試算表|表格/i.test(g)?["list_dir","read_file","search","write_file","read_xlsx","diff_xlsx","update_xlsx","create_xlsx"]:["list_dir","read_file","search","write_file","append_file"],dir:"",type:"work",task:g,gate:false}]});
+function planCard(pl){return new Promise(ok=>{
+  const d=L("h gate","","智慧規劃：我是這樣理解的"),box=document.createElement("div");box.className="md";
+  const steps=pl.flow?pl.flow.steps.map(x=>{const r=S.roles.find(y=>y.id===x.role)||{name:"?",tools:[]};return{role:r.name,task:x.task,tools:r.tools,type:x.type,gate:x.gate}}):pl.steps;
+  box.innerHTML="<p><b>"+esc(pl.summary)+"</b></p>"+(pl.flow?"<p>將使用你現有的流程「"+esc(pl.flow.name)+"」。</p>":"")+"<ol>"+steps.map(x=>"<li><b>"+esc(x.role)+"</b>"+(x.type==="review"?"（審核）":"")+"："+esc(x.task)+"<br><small>會用到："+(x.tools.map(t=>TN[t]||t).join("、")||"不使用工具")+(x.gate?"・🔒 執行前會先問你":"")+"</small></li>").join("")+"</ol>"+(pl.questions.length?'<p style="color:var(--warn)">⚠ 請確認：'+pl.questions.map(esc).join("；")+"</p>":"");
+  const ta=document.createElement("textarea");ta.placeholder="補充說明（選填，例如指定檔名），再按「依補充重新規劃」";ta.style.cssText="width:100%;height:56px;margin:6px 0";
+  const r=document.createElement("div");r.className="row";
+  const mk=(t,c,v)=>{const b=document.createElement("button");b.textContent=t;if(c)b.className=c;b.onclick=()=>{d.querySelectorAll("button,textarea").forEach(x=>x.disabled=true);ok(v==="redo"?{redo:ta.value.trim()}:v)};r.append(b)};
+  mk("確認並執行","pri",{go:1});mk("依補充重新規劃",null,"redo");mk("取消",null,null);
+  d.append(box,ta,r);log.scrollTop=1e9})}
+$("#auto").onclick=async()=>{
+  const goal=$("#goal").value.trim();
+  if(!goal){alert("請先用一句話描述你想做什麼");return}
+  if(!root){alert("請先在設定頁選擇資料匣");return}
+  document.body.dataset.v="run";busy=true;ready();$("#auto").hidden=true;$("#run").hidden=true;log.innerHTML="";logs=[];$("#prog").hidden=true;$("#stat").textContent="";
+  const fin=()=>{busy=false;$("#auto").hidden=false;$("#run").hidden=false;ready()};
+  let pl=null,extra="";
+  try{
+    for(let k=0;k<4;k++){
+      L("s","正在理解你的需求並規劃步驟…");let raw;
+      try{raw=await normPlan(await makePlan(goal,extra))}catch(e){L("s","規劃失敗（"+e.message+"），改用單一全能助理處理。");raw=await normPlan(fallbackPlan(goal))}
+      const r=await planCard(raw);
+      if(r&&r.redo!==undefined){extra=r.redo;continue}
+      if(r&&r.go)pl=raw;break}
+  }catch(e){L("e","規劃失敗："+e.message);fin();return}
+  if(!pl){L("s","已取消。");fin();return}
+  S.roles=S.roles.filter(r=>!r.tmp);S.flows=S.flows.filter(f=>!f.tmp);
+  let f;
+  if(pl.flow)f=pl.flow;
+  else{const map={};
+    pl.steps.forEach(x=>{const m=map[x.role]||(map[x.role]={id:uid(),name:x.role,sys:x.sys||"",tools:[],dir:x.dir||"",llm:"",max:8,tmp:true});m.tools=[...new Set([...m.tools,...x.tools])]});
+    S.roles.push(...Object.values(map));
+    f={id:uid(),name:"（智慧）"+pl.summary.slice(0,18),maxLoops:2,tmp:true,steps:pl.steps.map(x=>({role:map[x.role].id,type:x.type,task:x.task,gate:!!x.gate,par:false}))};S.flows.push(f)}
+  S.cf=S.flows.indexOf(f);busy=false;render();
+  await runFlow();
+  if(f.tmp){const d=L("h","","想重複使用這個流程？"),b=document.createElement("button");b.textContent="儲存為我的流程";b.onclick=()=>{S.roles.forEach(r=>delete r.tmp);delete f.tmp;f.name=f.name.replace("（智慧）","");save();render();b.disabled=true;b.textContent="已儲存"};d.append(b)}
+};
+const EX=["比對 舊版.xlsx 和 新版.xlsx 有什麼不同","把 inbox 裡的文件整理成重點摘要","把 report.md 翻成英文並另存","根據資料夾內容做一份 8 張的簡報"];
+$("#ex").innerHTML="<span>試試看：</span>"+EX.map(x=>'<button type="button" class="cp ex">'+esc(x)+"</button>").join("");
+$("#ex").onclick=e=>{const b=e.target.closest(".ex");if(b){$("#goal").value=b.textContent;$("#goal").focus()}};
+
 /* ---------- 啟動 ---------- */
 const jump=n=>{const c=[...log.querySelectorAll('[data-step="'+n.dataset.j+'"]')].pop();if(c){document.body.dataset.v="run";c.scrollIntoView({behavior:"smooth",block:"start"})}};
 $("#chips").addEventListener("click",e=>{const n=e.target.closest(".note");if(n)jump(n)});
@@ -758,7 +821,7 @@ $("#chips").addEventListener("keydown",e=>{const n=e.target.closest(".note");if(
 $("#ptog").onclick=()=>{const c=$("#prog").classList.toggle("col");$("#ptog").textContent=c?"展開便利貼":"收合便利貼"};
 $("#tabs").onclick=e=>{const b=e.target.closest("button");if(!b)return;document.body.dataset.v=b.dataset.v;document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("on",x===b))};
 new MutationObserver(()=>document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("on",x.dataset.v===document.body.dataset.v))).observe(document.body,{attributes:true,attributeFilter:["data-v"]});
-$("#goal").addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)&&!$("#run").disabled&&!$("#run").hidden)runFlow()});
+$("#goal").addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)&&!$("#auto").disabled&&!$("#auto").hidden)$("#auto").click()});
 (async()=>{
   const h=await hGet();
   if(h){try{if(await h.queryPermission({mode:"readwrite"})==="granted"){root=h;rootMsg="目前開放：/"+h.name}else rootMsg="「"+h.name+"」需重新授權，請再按一次選擇資料匣。"}catch(e){}}
