@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>小蝦 v6 · 多角色工作流</title>
+<style>
+:root{--bg:#f3f5f4;--panel:#fff;--ink:#17211f;--mute:#5d6b67;--line:#d6dddb;--accent:#0f6b5c;--accent-ink:#fff;--tool:#eef3f1;--warn:#a8431f;--soft:#e3efe9}
+@media (prefers-color-scheme:dark){:root{--bg:#121816;--panel:#1a2320;--ink:#e6eeeb;--mute:#93a39e;--line:#2b3733;--accent:#4fc3a8;--accent-ink:#06211b;--tool:#202b28;--warn:#e88b65;--soft:#22342e}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}body{height:100dvh}
+body{font:14px/1.55 "Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;background:var(--bg);color:var(--ink);display:grid;grid-template-columns:clamp(320px,30vw,420px) 1fr;grid-template-rows:minmax(0,1fr);overflow:hidden}#log{min-height:0}
+aside{background:var(--panel);border-right:1px solid var(--line);padding:14px;overflow:auto}
+main{display:flex;flex-direction:column;min-width:0;height:100%}
+h1{font-size:18px;margin:0 0 10px}
+section>summary{font-weight:600;cursor:pointer;padding:6px 0}
+section{border-top:1px solid var(--line);padding:4px 0}
+label{display:block;font-size:12px;color:var(--mute);margin:8px 0 2px}
+input,select,textarea,button{font:inherit;color:inherit}
+input[type=text],input[type=password],input[type=number],select,textarea{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
+textarea{resize:vertical}
+button{cursor:pointer;border:1px solid var(--line);background:var(--panel);padding:6px 10px;border-radius:6px}
+button.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button:disabled{opacity:.5;cursor:not-allowed}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.row>select,.row>input{flex:1;width:auto}
+.chk{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--ink);margin:6px 12px 0 0}
+.card{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:8px 0;background:var(--bg)}
+.card>summary{cursor:pointer;font-weight:600}
+.step{border-left:3px solid var(--accent)}
+.folder{font-size:13px;margin-top:6px;word-break:break-all}.bad{color:var(--warn)}
+.bar{display:flex;gap:8px;padding:12px 18px;border-bottom:1px solid var(--line);background:var(--panel);align-items:flex-start}
+.bar textarea{flex:1;height:58px}
+#log{flex:1;overflow:auto;padding:16px max(16px,calc((100% - 820px)/2))}
+.m{margin:0 0 12px;padding:9px 13px;border-radius:10px;white-space:pre-wrap;word-break:break-word;background:var(--panel);border:1px solid var(--line)}
+.m .who{display:block;font-size:12px;color:var(--accent);margin-bottom:2px}.m.md{white-space:normal}.md h3,.md h4,.md h5,.md h6{margin:.6em 0 .2em;font-size:1em}.md pre{background:var(--tool);padding:8px;border-radius:6px;overflow:auto;white-space:pre-wrap}.md code{background:var(--tool);padding:0 4px;border-radius:4px}.md .li{padding-left:.5em}.cp{font-size:12px;padding:3px 10px;min-height:0}.dls{margin-top:8px}
+.m.md .body{max-height:65vh;overflow:auto;padding-right:4px}
+.md p,.md ul,.md ol{margin:.4em 0}.md ul,.md ol{padding-left:1.4em}
+.md table{border-collapse:collapse;display:block;overflow-x:auto;margin:.5em 0}.md th,.md td{border:1px solid var(--line);padding:4px 8px;white-space:nowrap}.md th{background:var(--tool)}
+.md blockquote{margin:.5em 0;padding-left:10px;border-left:3px solid var(--accent);color:var(--mute)}.md hr{border:0;border-top:1px solid var(--line);margin:.8em 0}
+#prog{padding:8px 18px;border-bottom:1px solid var(--line);background:var(--panel)}
+.pbar{height:8px;background:var(--tool);border-radius:4px;overflow:hidden}.pbar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+#stat{font-size:13px;color:var(--mute);margin-top:4px}
+#chips{display:flex;gap:6px;overflow-x:auto;padding-top:6px}
+.srow{display:flex;justify-content:space-between;align-items:center;gap:8px}
+#prog.col #chips{display:none}
+#chips{display:flex;align-items:stretch;gap:4px;overflow-x:auto;padding:14px 6px 10px}
+.grp{display:flex;flex-direction:column;gap:14px;justify-content:center}
+.arr{align-self:center;color:var(--mute);font-size:20px;padding:0 2px}
+.note{--bgc:#fff3a3;position:relative;flex:none;width:170px;min-height:112px;padding:16px 12px 12px;background:var(--bgc);color:#2b2b1f;border-radius:2px 2px 16px 2px;box-shadow:0 3px 8px rgba(0,0,0,.25);font-size:13px;line-height:1.4;transform:rotate(var(--rot,-1.2deg));cursor:pointer;transition:transform .2s,opacity .2s}
+.note:hover{transform:rotate(0) translateY(-2px)}
+.note::before{content:"";position:absolute;top:-7px;left:50%;width:46px;height:14px;margin-left:-23px;background:rgba(255,255,255,.6);box-shadow:0 1px 2px rgba(0,0,0,.18)}
+.note b{display:block;font-size:14px}
+.note .tk{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin:4px 0 6px}
+.note small{display:block;color:#5a5a45;font-size:11px}
+.note .stamp{position:absolute;right:8px;bottom:8px;font-size:12px;font-weight:700;border:2px solid currentColor;border-radius:6px;padding:0 6px;transform:rotate(-8deg);background:rgba(255,255,255,.35)}
+.note.c0{--bgc:#fff3a3}.note.c1{--bgc:#ffc9d9}.note.c2{--bgc:#bfe3ff}.note.c3{--bgc:#c8f0c0}.note.c4{--bgc:#ffd9a8}.note.c5{--bgc:#e0cdfb}
+.note.wait{opacity:.85}.note.skip{opacity:.45}
+.note.run{outline:3px solid var(--accent);animation:pulse 1.4s ease-in-out infinite}
+.note.run .stamp{color:#0f6b5c}.note.ok .stamp{color:#1b6b3a}
+.note.bad{outline:3px dashed #c4501f}.note.bad .stamp,.note.err .stamp{color:#c4501f}
+@keyframes pulse{50%{transform:rotate(0) scale(1.04)}}
+@media (prefers-reduced-motion:reduce){.note.run{animation:none}}
+.chip{white-space:nowrap;font-size:12px;border:1px solid var(--line);border-radius:999px;padding:2px 10px;background:var(--bg)}
+.chip.run{border-color:var(--accent);color:var(--accent);font-weight:600}.chip.ok{background:var(--soft)}.chip.bad,.chip.err{border-color:var(--warn);color:var(--warn)}.chip.skip{opacity:.5}#tabs{display:none}
+.m.h{background:var(--soft);border-color:var(--accent)}
+.m.e{border-color:var(--warn);color:var(--warn)}
+.m.s{background:none;border:0;color:var(--mute);padding:2px 4px;font-size:13px}
+details.t{margin:0 0 10px;background:var(--tool);border-radius:8px;padding:5px 12px;font-size:12px}
+details.t summary{cursor:pointer;color:var(--mute)}
+details.t pre{margin:6px 0;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow:auto}
+.gate textarea{height:140px;margin:6px 0}
+@media (max-width:900px){
+body{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}
+#tabs{display:flex;background:var(--panel);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top)}
+#tabs button{flex:1;border:0;border-radius:0;padding:12px;font-weight:600;background:none}
+#tabs button.on{color:var(--accent);box-shadow:inset 0 -3px var(--accent)}
+aside,main{grid-row:2;grid-column:1;min-height:0}
+body[data-v="run"] aside{display:none}body[data-v="set"] main{display:none}
+aside{border:0;padding:12px 14px calc(18px + env(safe-area-inset-bottom))}
+input,select,textarea{font-size:16px}button{min-height:40px}
+.bar{flex-direction:column;padding:10px 12px}.bar textarea{width:100%;flex:none}
+.bar .acts{flex-direction:row!important;flex-wrap:wrap;align-items:stretch!important;width:100%}
+.bar .acts>*{flex:1 1 140px}
+#log{padding:12px}.bar textarea{height:48px}.m.md .body{max-height:55dvh}#prog{padding:8px 12px}
+}
+</style>
+</head>
+<body data-v="set">
+<div id="tabs"><button data-v="set" class="on">設定</button><button data-v="run">執行</button></div>
+<aside id="side"></aside>
+<main>
+  <div class="bar">
+    <textarea id="goal" placeholder="輸入這次流程的總目標，例如：整理 inbox 內的會議記錄，產出本週摘要"></textarea>
+    <div class="row acts" style="flex-direction:column;align-items:stretch">
+      <button class="pri" id="run">執行流程</button><button id="stop" hidden>停止</button>
+      <select id="from" title="起始步驟"></select>
+      <button id="dl">下載紀錄</button>
+      <select id="hist" title="歷史紀錄"></select>
+    </div>
+  </div>
+  <div id="prog" hidden><div class="pbar"><i id="pfill"></i></div><div class="srow"><div id="stat"></div><button class="cp" id="ptog">收合便利貼</button></div><div id="chips"></div></div>
+  <div id="log"></div>
+</main>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const PRESET={openai:["https://api.openai.com/v1","gpt-4o"],anthropic:["https://api.anthropic.com","claude-sonnet-4-5"],ollama:["http://localhost:11434/v1","qwen2.5"],puter:["","gpt-4o-mini"]};
+const TOOLS=[
+ {name:"list_dir",description:"列出資料夾內容，path 為相對路徑，根目錄用空字串。",props:{path:{type:"string"}},req:[]},
+ {name:"read_file",description:"讀取文字檔。",props:{path:{type:"string"}},req:["path"]},
+ {name:"write_file",description:"建立或覆寫文字檔，自動建立資料夾。",props:{path:{type:"string"},content:{type:"string"}},req:["path","content"]},
+ {name:"search",description:"搜尋包含關鍵字的文字行。",props:{query:{type:"string"},path:{type:"string"}},req:["query"]},
+ {name:"append_file",description:"在檔案末尾附加內容，檔案不存在則建立。",props:{path:{type:"string"},content:{type:"string"}},req:["path","content"]},
+ {name:"replace_in_file",description:"將檔案中第一處 find 文字取代為 replace，適合小幅修改。",props:{path:{type:"string"},find:{type:"string"},replace:{type:"string"}},req:["path","find","replace"]},
+ {name:"delete_file",description:"刪除單一檔案（每次都需使用者確認）。",props:{path:{type:"string"}},req:["path"]}
+];
+const TN={list_dir:"列目錄",read_file:"讀檔",write_file:"寫檔",search:"搜尋",append_file:"附加",replace_in_file:"取代",delete_file:"刪檔"};
+const TPL=[
+ {name:"研究員",sys:"你負責蒐集並整理資料，條列重點並標示來源檔名，不做無根據的推論。",tools:["list_dir","read_file","search"]},
+ {name:"程式碼審查員",sys:"你審查程式碼的正確性、安全性與可讀性，依嚴重程度列出問題與修改建議，並引用檔名與行號。",tools:["list_dir","read_file","search"]},
+ {name:"翻譯員",sys:"你負責忠實翻譯，保留格式與專有名詞，並將譯文寫入檔案。",tools:["read_file","write_file"]},
+ {name:"摘要員",sys:"你負責把長文濃縮成條理清楚的摘要，附上關鍵結論與待辦事項。",tools:["read_file"]}];
+
+/* ---------- 狀態 ---------- */
+let S={llms:[{id:"putter",name:"Putter AI",prov:"puter",base:"",key:"",model:"gpt-4o-mini"}],defLlm:"putter",cl:0,autoWrite:false,roles:[],flows:[],cf:0};
+try{const x=JSON.parse(localStorage.getItem("xlx3")||"null");if(x)S=x}catch(e){}
+const save=()=>{try{localStorage.setItem("xlx3",JSON.stringify(S))}catch(e){}};
+const llmOf=r=>S.llms.find(x=>x.id===r.llm)||S.llms.find(x=>x.id===S.defLlm)||S.llms[0];
+const llmName=id=>(S.llms.find(x=>x.id===id)||S.llms[0]).name;
+const llmOpts=v=>S.llms.map(l=>`<option value="${l.id}"${l.id==v?" selected":""}>${esc(l.name)}</option>`).join("");
+let root=null,rootMsg="尚未選擇資料匣",busy=false,ctl=null,logs=[];
+const idb=()=>new Promise((ok,no)=>{const r=indexedDB.open("xlx2",1);r.onupgradeneeded=()=>r.result.createObjectStore("h");r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});
+async function hPut(v){try{(await idb()).transaction("h","readwrite").objectStore("h").put(v,"root")}catch(e){}}
+async function hGet(){try{const d=await idb();return await new Promise(ok=>{const r=d.transaction("h").objectStore("h").get("root");r.onsuccess=()=>ok(r.result);r.onerror=()=>ok(null)})}catch(e){return null}}
+const uid=()=>"i"+Math.random().toString(36).slice(2,8);
+const setPath=(p,v)=>{const k=p.split(".");let o=S;for(let i=0;i<k.length-1;i++)o=o[k[i]];o[k[k.length-1]]=v;save()};
+
+/* ---------- 範例 ---------- */
+function sample(){
+  const r=(name,sys,tools,dir)=>({id:uid(),name,sys,tools,dir,llm:"",max:8});
+  const a=r("收集員","你負責閱讀資料並條列重點，每點附上來源檔名。只陳述資料中有的內容，不做推測。",["list_dir","read_file","search"],"inbox");
+  const b=r("撰稿員","依據提供的重點撰寫結構完整的文件，寫入檔案 draft.md，並在回覆中貼出全文。若收到審核意見，逐點修改。",["read_file","write_file"],"output");
+  const c=r("審稿員","你是嚴格的審稿員，檢查每項論述是否有來源、結構是否清楚。第一行只能寫 PASS 或 FAIL，之後說明理由與具體修改建議。",["read_file"],"output");
+  const d=r("歸檔員","把最終稿存成 final.md，並回報完成的檔案路徑。",["read_file","write_file"],"output");
+  S.roles.push(a,b,c,d);
+  S.flows.push({id:uid(),name:"資料整理 → 寫作 → 審稿",maxLoops:2,steps:[
+    {role:a.id,type:"work",task:"讀取範圍內所有檔案，整理出重點清單。",gate:false},
+    {role:b.id,type:"work",task:"根據重點撰寫完整文件。",gate:false},
+    {role:c.id,type:"review",task:"審核上一步的文件是否合格。",gate:false},
+    {role:d.id,type:"work",task:"將最終稿歸檔。",gate:true}]});
+  S.cf=S.flows.length-1;save();
+}
+
+/* ---------- 側欄 ---------- */
+const fld=(p,label,val,type="text")=>`<label>${label}<input type="${type}" data-p="${p}" value="${esc(val)}"></label>`;
+const area=(p,label,val,rows=3)=>`<label>${label}<textarea rows="${rows}" data-p="${p}">${esc(val)}</textarea></label>`;
+const provSel=(p,v)=>`<label>服務類型<select data-p="${p}" data-prov="${p}"><option value="puter"${v=="puter"?" selected":""}>Puter（puter.js，免填 Key）</option><option value="openai"${v=="openai"?" selected":""}>OpenAI 相容</option><option value="anthropic"${v=="anthropic"?" selected":""}>Anthropic</option><option value="ollama"${v=="ollama"?" selected":""}>Ollama（本機）</option></select></label>`;
+const tmSel=(p,v)=>`<label>工具呼叫方式<select data-p="${p}.tm"><option value="">自動（不支援時改用提示詞）</option><option value="native"${v=="native"?" selected":""}>原生 function calling</option><option value="prompt"${v=="prompt"?" selected":""}>提示詞模式（模型不支援 tools 時用）</option></select></label>`;
+const llmFields=(p,o)=>provSel(p+".prov",o.prov)+(o.prov==="puter"?"":fld(p+".base","API 網址",o.base)+fld(p+".key","API Key",o.key,"password"))+fld(p+".model","模型名稱",o.model)+(o.prov==="puter"?"":tmSel(p,o.tm));
+
+function render(){
+  const L0=S.llms[S.cl],f=S.flows[S.cf],roleOpts=v=>S.roles.map(r=>`<option value="${r.id}"${r.id==v?" selected":""}>${esc(r.name)}</option>`).join("");
+  $("#side").innerHTML=`<h1>小蝦 v6 · 工作流</h1>
+  <section><details open><summary>資料匣</summary>
+    <button class="pri" data-act="pick" style="width:100%;margin-top:6px">選擇開放的資料匣</button>
+    <div class="folder ${root?"":"bad"}">${esc(rootMsg)}</div>
+    <label class="chk"><input type="checkbox" data-p="autoWrite" ${S.autoWrite?"checked":""}> 寫檔時不再詢問（刪檔仍會詢問）</label><label class="chk"><input type="checkbox" data-p="saveRuns" ${S.saveRuns?"checked":""}> 將每步輸出存入 _runs/ 資料夾</label></details></section>
+  <section><details open><summary>AI 設定（${S.llms.length}）</summary>
+    <label>預設使用<select data-p="defLlm" data-re="1">${llmOpts(S.defLlm)}</select></label>
+    <div class="row" style="margin-top:8px"><select data-act="pickllm">${S.llms.map((l,i)=>`<option value="${i}"${i==S.cl?" selected":""}>${esc(l.name)}</option>`).join("")}</select><button data-act="addllm">新增</button></div>
+    ${L0?`${fld(`llms.${S.cl}.name`,"AI 名稱",L0.name)}${llmFields(`llms.${S.cl}`,L0)}<div class="row" style="margin-top:8px"><button data-act="testllm">測試連線</button><button data-act="delllm">刪除此 AI</button></div>`:""}</details></section>
+  <section><details open><summary>角色（${S.roles.length}）</summary>
+    ${S.roles.map((r,i)=>`<details class="card"><summary>${esc(r.name)}</summary>
+      ${fld(`roles.${i}.name`,"角色名稱",r.name)}
+      ${area(`roles.${i}.sys`,"職責提示詞",r.sys,4)}
+      ${fld(`roles.${i}.dir`,"工作子目錄（空白＝整個資料匣）",r.dir)}
+      <div class="row">${TOOLS.map(t=>`<label class="chk"><input type="checkbox" data-tool="${i}:${t.name}" ${r.tools.includes(t.name)?"checked":""}>${TN[t.name]}</label>`).join("")}</div>
+      ${fld(`roles.${i}.max`,"單步最多工具輪數",r.max,"number")}
+      <label>使用的 AI<select data-p="roles.${i}.llm" data-re="1"><option value="">跟隨預設（${esc(llmName(S.defLlm))}）</option>${llmOpts(r.llm)}</select></label>
+      <button data-act="delrole" data-i="${i}" style="margin-top:8px">刪除角色</button></details>`).join("")}
+    <div class="row"><button data-act="addrole">新增空白角色</button><select data-act="tpl"><option value="">從範本新增…</option>${TPL.map((t,i)=>`<option value="${i}">${t.name}</option>`).join("")}</select></div></details></section>
+  <section><details open><summary>流程</summary>
+    <div class="row" style="margin-top:6px"><select data-act="pickflow">${S.flows.map((x,i)=>`<option value="${i}"${i==S.cf?" selected":""}>${esc(x.name)}</option>`).join("")}</select><button data-act="addflow">新增</button></div>
+    ${f?`${fld(`flows.${S.cf}.name`,"流程名稱",f.name)}${fld(`flows.${S.cf}.maxLoops`,"審核不通過時最多退回次數",f.maxLoops,"number")}
+    ${f.steps.map((s,j)=>`<div class="card step"><div class="row"><select data-p="flows.${S.cf}.steps.${j}.role">${roleOpts(s.role)}</select>
+      <select data-re="1" data-p="flows.${S.cf}.steps.${j}.type"><option value="work"${s.type=="work"?" selected":""}>執行</option><option value="review"${s.type=="review"?" selected":""}>審核</option></select></div>
+      ${area(`flows.${S.cf}.steps.${j}.task`,"本步驟任務",s.task,2)}
+      <div class="row"><label class="chk"><input type="checkbox" data-p="flows.${S.cf}.steps.${j}.gate" ${s.gate?"checked":""}>執行前需我核准</label>${j>0&&s.type=="work"?`<label class="chk"><input type="checkbox" data-p="flows.${S.cf}.steps.${j}.par" ${s.par?"checked":""}>與上一步並行</label>`:""}
+      <button data-act="up" data-j="${j}">上移</button><button data-act="dn" data-j="${j}">下移</button><button data-act="rm" data-j="${j}">刪除</button></div></div>`).join("")}
+    <div class="row"><button data-act="addstep">新增步驟</button><button data-act="delflow">刪除流程</button></div>`:"<p>尚無流程。</p>"}
+    </details></section>
+  <section><details><summary>範例與匯出入</summary><div class="row" style="margin-top:6px">
+    <button data-act="sample">載入範例</button><button data-act="export">匯出 JSON</button><button data-act="import">匯入 JSON</button></div>
+    <p style="color:var(--mute);font-size:12px">匯出時不含 API Key。</p></details></section>`;
+  if(!busy)chipSt=[];fillFrom();progDraw();ready();
+}
+function ready(){$("#run").disabled=busy||!root||!S.flows[S.cf]||!S.flows[S.cf].steps.length}
+
+/* ---------- 側欄事件 ---------- */
+const side=$("#side");
+side.addEventListener("input",e=>{
+  const t=e.target;
+  if(t.dataset.tool){const [i,n]=t.dataset.tool.split(":");const a=S.roles[i].tools;S.roles[i].tools=t.checked?[...new Set([...a,n])]:a.filter(x=>x!==n);save();return}
+  if(!t.dataset.p)return;
+  let v=t.type==="checkbox"?t.checked:t.type==="number"?Number(t.value):t.value;
+  setPath(t.dataset.p,v);
+  if(t.dataset.prov){const base=t.dataset.prov.replace(/\.prov$/,"");const o=base.split(".").reduce((a,k)=>a[k],S);o.base=PRESET[v][0];o.model=PRESET[v][1];save();render()}
+  else if(t.dataset.re)render();
+});
+side.addEventListener("click",async e=>{
+  const b=e.target.closest("button");if(!b)return;const a=b.dataset.act,f=S.flows[S.cf];
+  if(a==="pick"){
+    if(!window.showDirectoryPicker){alert("請使用 Chrome 或 Edge 電腦版，並直接開啟本檔案。");return}
+    try{root=await showDirectoryPicker({mode:"readwrite"});await hPut(root);rootMsg="目前開放：/"+root.name}catch(x){}
+  }else if(a==="addrole")S.roles.push({id:uid(),name:"新角色",sys:"",tools:["list_dir","read_file"],dir:"",llm:"",max:8});
+  else if(a==="addllm"){S.llms.push({id:uid(),name:"新 AI",prov:"openai",base:PRESET.openai[0],key:"",model:PRESET.openai[1]});S.cl=S.llms.length-1}
+  else if(a==="delllm"){if(S.llms.length<2){alert("至少保留一個 AI");return}const l=S.llms[S.cl];S.llms.splice(S.cl,1);S.cl=0;S.roles.forEach(r=>{if(r.llm===l.id)r.llm=""});if(S.defLlm===l.id)S.defLlm=S.llms[0].id}
+  else if(a==="testllm"){b.disabled=true;b.textContent="測試中…";try{ctl=new AbortController();const r=await llm(S.llms[S.cl],[{r:"u",t:"請只回覆 OK"}],[],"你是測試助理");alert("連線成功，回覆："+String(r.t).slice(0,80))}catch(x){alert("連線失敗："+x.message)}render();return}
+  else if(a==="delrole"){const r=S.roles[b.dataset.i];S.roles.splice(b.dataset.i,1);S.flows.forEach(x=>x.steps=x.steps.filter(s=>s.role!==r.id))}
+  else if(a==="addflow"){S.flows.push({id:uid(),name:"新流程",maxLoops:2,steps:[]});S.cf=S.flows.length-1}
+  else if(a==="delflow"){if(!confirm("刪除此流程？"))return;S.flows.splice(S.cf,1);S.cf=0}
+  else if(a==="addstep"){if(!S.roles.length){alert("請先新增角色");return}f.steps.push({role:S.roles[0].id,type:"work",task:"",gate:false})}
+  else if(a==="rm")f.steps.splice(b.dataset.j,1);
+  else if(a==="up"||a==="dn"){const j=+b.dataset.j,k=a==="up"?j-1:j+1;if(k<0||k>=f.steps.length)return;[f.steps[j],f.steps[k]]=[f.steps[k],f.steps[j]]}
+  else if(a==="sample"){if(S.roles.length&&!confirm("範例會新增 4 個角色與 1 條流程，繼續？"))return;sample()}
+  else if(a==="export"){
+    const c=JSON.parse(JSON.stringify({v:3,llms:S.llms,defLlm:S.defLlm,roles:S.roles,flows:S.flows,autoWrite:S.autoWrite}));c.llms.forEach(l=>l.key="");
+    dl(JSON.stringify(c,null,2),"workstream.json","application/json");return
+  }else if(a==="import"){
+    const i=document.createElement("input");i.type="file";i.accept=".json";
+    i.onchange=async()=>{try{const x=JSON.parse(await i.files[0].text());if(!x.roles||!x.flows)throw 0;const old=S.llms;S={...S,...x,cf:0,cl:0};if(!S.llms||!S.llms.length)S.llms=old;S.llms.forEach(l=>{const o=old.find(y=>y.id===l.id);if(o&&!l.key)l.key=o.key});if(!S.llms.find(l=>l.id===S.defLlm))S.defLlm=S.llms[0].id;save();render()}catch(err){alert("檔案格式不正確")}};
+    i.click();return
+  }
+  save();render();
+});
+side.addEventListener("change",e=>{const a=e.target.dataset.act;if(a==="pickflow"){S.cf=+e.target.value;save();render()}else if(a==="pickllm"){S.cl=+e.target.value;save();render()}else if(a==="tpl"){const t=TPL[e.target.value];if(t){S.roles.push({id:uid(),name:t.name,sys:t.sys,tools:t.tools,dir:"",llm:"",max:8});save();render()}}});
+
+/* ---------- 紀錄 ---------- */
+const log=$("#log");
+function md(t){
+  const bl=[];t=t.replace(/```[^\n]*\n([\s\S]*?)```/g,(_,c)=>{bl.push(c);return "\n\u0000"+(bl.length-1)+"\u0000\n"});
+  const inl=x=>esc(x).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/`([^`]+)`/g,"<code>$1</code>").replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  const Ls=t.split("\n"),o=[],LI=/^\s*([-*]|\d+\.)\s+/,TB=/^\s*\|.*\|\s*$/;let i=0;
+  while(i<Ls.length){
+    const l=Ls[i];let m;
+    if(/^\u0000\d+\u0000$/.test(l.trim())){o.push("<pre>"+esc(bl[+l.trim().slice(1,-1)])+"</pre>");i++}
+    else if(m=l.match(/^(#{1,6})\s+(.*)/)){const n=Math.min(m[1].length+2,6);o.push("<h"+n+">"+inl(m[2])+"</h"+n+">");i++}
+    else if(/^\s*(---+|\*\*\*+)\s*$/.test(l)){o.push("<hr>");i++}
+    else if(TB.test(l)){const rows=[];while(i<Ls.length&&TB.test(Ls[i])){rows.push(Ls[i]);i++}
+      const cells=r=>r.trim().replace(/^\||\|$/g,"").split("|").map(x=>x.trim());
+      o.push("<table>"+rows.filter(r=>!/^\s*\|[\s:|-]+\|\s*$/.test(r)).map((r,k)=>"<tr>"+cells(r).map(c=>(k?"<td>":"<th>")+inl(c)+(k?"</td>":"</th>")).join("")+"</tr>").join("")+"</table>")}
+    else if(LI.test(l)){const ord=/^\s*\d+\./.test(l),it=[];while(i<Ls.length&&LI.test(Ls[i])){it.push(Ls[i].replace(LI,""));i++}
+      o.push((ord?"<ol>":"<ul>")+it.map(x=>"<li>"+inl(x)+"</li>").join("")+(ord?"</ol>":"</ul>"))}
+    else if(/^>\s?/.test(l)){const q=[];while(i<Ls.length&&/^>\s?/.test(Ls[i])){q.push(Ls[i].replace(/^>\s?/,""));i++}o.push("<blockquote>"+q.map(inl).join("<br>")+"</blockquote>")}
+    else if(!l.trim())i++;
+    else{const p=[];while(i<Ls.length&&Ls[i].trim()&&!/^(#{1,6}\s|>|\u0000)/.test(Ls[i])&&!LI.test(Ls[i])&&!TB.test(Ls[i])&&!/^\s*---+\s*$/.test(Ls[i])){p.push(Ls[i]);i++}
+      if(!p.length){p.push(Ls[i]);i++}o.push("<p>"+p.map(inl).join("<br>")+"</p>")}
+  }
+  return o.join("")}
+const strip=x=>String(x).replace(/\*\*(.+?)\*\*/g,"$1").replace(/`([^`]+)`/g,"$1").replace(/\[([^\]]+)\]\([^)]+\)/g,"$1");
+const titleOf=(t,n)=>{const m=t.match(/^#{1,6}\s+(.*)/m);return strip(m?m[1]:(n||"output")).trim()||"output"};
+const fname=(t,n)=>titleOf(t,n).replace(/[\\\/:*?"<>|\s]+/g,"_").slice(0,40);
+
+/* PDF：使用瀏覽器列印（可完整支援中文），在列印視窗選「另存為 PDF」 */
+function toPdf(txt,name){
+  const css='body{font:14px/1.7 "Noto Sans TC","Microsoft JhengHei",sans-serif;color:#111;margin:24px}h3{font-size:1.6em}h4{font-size:1.3em}h3,h4,h5,h6{margin:1em 0 .3em}pre{background:#f3f3f3;padding:8px;white-space:pre-wrap}code{background:#f3f3f3;padding:0 3px}table{border-collapse:collapse;margin:.5em 0}td,th{border:1px solid #bbb;padding:4px 8px}th{background:#eee}blockquote{border-left:3px solid #999;margin:.5em 0;padding-left:10px;color:#555}hr{border:0;border-top:1px solid #ccc}';
+  const f=document.createElement("iframe");f.style.cssText="position:fixed;right:0;bottom:0;width:0;height:0;border:0";document.body.append(f);
+  f.srcdoc='<!doctype html><meta charset="utf-8"><title>'+esc(titleOf(txt,name))+"</title><style>"+css+"</style>"+md(txt);
+  f.onload=()=>setTimeout(()=>{f.contentWindow.focus();f.contentWindow.print();setTimeout(()=>f.remove(),60000)},250);
+  setStat("請在列印視窗的「目的地」選擇「另存為 PDF」");
+}
+
+/* PPTX：把 Markdown 轉成投影片（以 --- 分頁；沒有 --- 則依 # / ## 標題分頁） */
+let pptxP=null;
+function loadPptx(){
+  if(window.PptxGenJS)return Promise.resolve();if(pptxP)return pptxP;
+  const urls=["https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js","https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js"];
+  pptxP=(async()=>{for(const u of urls){try{await new Promise((ok,no)=>{const e=document.createElement("script");e.src=u;e.onload=ok;e.onerror=no;document.head.append(e)});if(window.PptxGenJS)return}catch(e){}}throw new Error("無法載入 PPTX 產生器（pptxgenjs），請確認網路連線")})();
+  pptxP.catch(()=>pptxP=null);return pptxP}
+function mdSlides(txt){
+  txt=txt.replace(/```[^\n]*\n([\s\S]*?)```/g,(_,c)=>c);
+  const parts=/^\s*---+\s*$/m.test(txt)?txt.split(/^\s*---+\s*$/m):txt.split(/^(?=#{1,2}\s)/m);
+  return parts.map(c=>c.trim()).filter(Boolean).map(c=>{
+    let title="";const items=[],tbl=[];
+    for(const raw of c.split("\n")){const l=raw.trimEnd();if(!l.trim())continue;let m;
+      if(m=l.match(/^#{1,6}\s+(.*)/)){if(!title)title=m[1];else items.push({t:m[1],head:true});continue}
+      if(/^\s*\|.*\|\s*$/.test(l)){if(!/^\s*\|[\s:|-]+\|\s*$/.test(l))tbl.push(l.trim().replace(/^\||\|$/g,"").split("|").map(x=>x.trim()));continue}
+      if(m=l.match(/^(\s*)([-*]|\d+\.)\s+(.*)/)){items.push({t:m[3],bul:true,lv:Math.min(2,Math.floor(m[1].length/2))});continue}
+      items.push({t:l.replace(/^>\s?/,"").trim()})}
+    return{title,items,tbl}})}
+async function toPptx(txt,name){
+  await loadPptx();
+  const slides=mdSlides(txt);if(!slides.length)throw new Error("沒有可轉換的內容");
+  const p=new PptxGenJS();p.layout="LAYOUT_16x9";p.title=titleOf(txt,name);
+  const F="標楷體",INK="17211F",AC="0F6B5C";
+  slides.forEach((sl,idx)=>{
+    const chunks=[];for(let k=0;k<Math.max(1,sl.items.length);k+=7)chunks.push(sl.items.slice(k,k+7));
+    chunks.forEach((its,ci)=>{
+      const s=p.addSlide();s.background={color:"FFFFFF"};
+      s.addShape(p.ShapeType.rect,{x:0,y:0,w:0.18,h:5.625,fill:{color:AC}});
+      const title=(sl.title||p.title)+(ci?"（續）":"");
+      if(idx===0&&!ci&&!sl.items.some(x=>x.bul)&&!sl.tbl.length){
+        s.addText(title,{x:0.8,y:1.6,w:8.4,h:1.4,fontFace:F,fontSize:36,bold:true,color:AC,fit:"shrink"});
+        if(its.length)s.addText(its.map(x=>strip(x.t)).join("\n"),{x:0.8,y:3.1,w:8.4,h:1.6,fontFace:F,fontSize:18,color:"5D6B67",valign:"top",fit:"shrink"});
+        return}
+      s.addText(title,{x:0.5,y:0.3,w:9,h:0.9,fontFace:F,fontSize:28,bold:true,color:AC,fit:"shrink"});
+      const hasT=sl.tbl.length&&!ci;
+      if(its.length)s.addText(its.map(x=>{const o={breakLine:true,fontSize:its.length>5?16:18,color:INK,fontFace:F,bold:!!x.head};if(x.bul){o.bullet={indent:18};o.indentLevel=x.lv||0}return{text:strip(x.t),options:o}}),{x:0.5,y:1.3,w:9,h:hasT?1.9:3.8,valign:"top",fit:"shrink"});
+      if(hasT)s.addTable(sl.tbl.map((r,ri)=>r.map(c=>{const o={bold:ri===0,fontFace:F,fontSize:13,color:INK};if(ri===0)o.fill={color:"E3EFE9"};return{text:strip(c),options:o}})),{x:0.5,y:its.length?3.3:1.4,w:9,border:{type:"solid",color:"D6DDDB",pt:1}});
+    })});
+  await p.writeFile({fileName:fname(txt,name)+".pptx"});
+}
+
+/* 下載按鈕列 */
+function dlRow(txt,name){
+  name=String(name||"").split(" · ")[0];
+  const r=document.createElement("div");r.className="row dls";
+  const mk=(t,fn)=>{const b=document.createElement("button");b.className="cp";b.textContent=t;b.onclick=async()=>{b.disabled=true;b.textContent="處理中…";try{await fn()}catch(e){alert(e.message||e)}b.disabled=false;b.textContent=t};r.append(b)};
+  mk("複製",()=>navigator.clipboard.writeText(txt));
+  mk("下載 MD",async()=>dl(txt,fname(txt,name)+".md"));
+  mk("下載 PPTX",()=>toPptx(txt,name));
+  mk("下載 PDF",async()=>toPdf(txt,name));
+  return r}
+function finalCard(txt){if(!txt)return;const d=L("h","","最終成果（可下載）");d.append(dlRow(txt,"最終成果"))}
+
+/* 進度顯示 */
+let chipSt=[],tick=null,t0s=0,statTxt="",stepSec=[];
+const ST={wait:"待處理",run:"執行中",ok:"完成",bad:"退回修改",skip:"略過",err:"中斷"};
+function progDraw(f){
+  f=f||S.flows[S.cf];const pr=$("#prog");
+  if(!f||!f.steps.length){pr.hidden=true;return}
+  pr.hidden=false;
+  const groups=[];f.steps.forEach((st,j)=>{if(j>0&&st.par&&st.type==="work")groups[groups.length-1].push(j);else groups.push([j])});
+  const note=j=>{
+    const st=f.steps[j],r=S.roles.find(x=>x.id===st.role),k=chipSt[j]||"wait",ri=Math.max(0,S.roles.indexOf(r));
+    const fl=[st.type==="review"?"審核":"",st.par?"並行":"",st.gate?"🔒需核准":""].filter(Boolean).join("・");
+    const extra=st.type==="review"?"未通過會退回（最多 "+(f.maxLoops||0)+" 次）":"";
+    return `<div class="note c${ri%6} ${k}" data-j="${j}" tabindex="0" role="button" style="--rot:${j%2?1.2:-1.2}deg"><b>${j+1}. ${esc(r?r.name:"（角色已刪除）")}</b><span class="tk">${esc(st.task||"（依職責處理）")}</span><small>AI：${esc(r?llmOf(r).name:"?")}${fl?"・"+fl:""}</small>${extra?"<small>"+extra+"</small>":""}${stepSec[j]?"<small>耗時 "+stepSec[j]+" 秒</small>":""}${k!=="wait"?`<span class="stamp">${ST[k]}</span>`:""}</div>`};
+  $("#chips").innerHTML=groups.map(g=>`<div class="grp">${g.map(note).join("")}</div>`).join('<span class="arr">➜</span>');
+  const done=chipSt.filter(x=>x==="ok"||x==="skip").length;
+  $("#pfill").style.width=(f.steps.length?done/f.steps.length*100:0)+"%";
+  const e=$("#chips .run");if(e)e.scrollIntoView({inline:"center",block:"nearest"})}
+const progInit=(f,start)=>{stepSec=[];chipSt=f.steps.map((_,j)=>j<start?"skip":"wait");$("#prog").hidden=false;progDraw(f)};
+const setSt=(j,v)=>{chipSt[j]=v;progDraw()};
+function drawStat(){$("#stat").textContent=(busy?"⏱ "+Math.floor((Date.now()-t0s)/1000)+" 秒　":"")+statTxt}
+function setStat(t){statTxt=t;drawStat()}
+
+function L(cls,txt,who){const d=document.createElement("div");d.className="m "+cls+(cls==="a"?" md":"");if(who){const b=document.createElement("span");b.className="who";b.textContent=who;d.append(b)}
+  if(cls==="a"){const c=document.createElement("div");c.className="body";c.innerHTML=md(txt);d.append(c,dlRow(txt,who))}else d.append(document.createTextNode(txt));log.append(d);log.scrollTop=1e9;logs.push((who?"### "+who+"\n":"")+txt);return d}
+function T(name,args,out){const d=document.createElement("details");d.className="t";const s=document.createElement("summary");s.textContent="工具："+name+" "+(args.path||args.query||"");const p=document.createElement("pre");p.textContent=out;d.append(s,p);log.append(d);log.scrollTop=1e9;logs.push("- 工具 "+name+" "+(args.path||args.query||""))}
+function dl(txt,name,type){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([txt],{type:type||"text/markdown"}));a.download=name;a.click()}
+$("#dl").onclick=()=>dl(logs.join("\n\n"),"run-log.md");
+const HK="xlx3h",getH=()=>{try{return JSON.parse(localStorage.getItem(HK)||"[]")}catch(e){return[]}};
+function fillHist(){$("#hist").innerHTML='<option value="">歷史紀錄（選擇即下載）</option>'+getH().map((x,i)=>`<option value="${i}">${esc(x.t)} · ${esc(x.flow)}</option>`).join("")}
+function pushHist(flow,goal){try{const h=getH();h.unshift({t:new Date().toLocaleString(),flow,goal:goal.slice(0,30),md:logs.join("\n\n").slice(0,100000)});localStorage.setItem(HK,JSON.stringify(h.slice(0,12)))}catch(e){}fillHist()}
+$("#hist").onchange=e=>{const x=getH()[e.target.value];if(x)dl(x.md,"run-"+x.t.replace(/[^\d]/g,"")+".md");e.target.value=""};
+function fillFrom(){const f=S.flows[S.cf];$("#from").innerHTML=f?f.steps.map((st,j)=>{const r=S.roles.find(x=>x.id===st.role);return `<option value="${j}">從第 ${j+1} 步開始（${esc(r?r.name:"?")}）</option>`}).join(""):""}
+fillHist();
+
+/* ---------- 檔案工具（以角色子目錄為範圍） ---------- */
+const parts=p=>{const a=String(p||"").split("/").filter(x=>x&&x!==".");if(a.includes(".."))throw new Error("路徑不可包含 ..");return a};
+async function dirAt(base,a,create){let d=base;for(const n of a)d=await d.getDirectoryHandle(n,{create});return d}
+async function walk(d,pre,fn,c){for await(const [n,h] of d.entries()){if(c.n>400)return;if(h.kind==="directory"){if(n.startsWith(".")||n==="node_modules")continue;await walk(h,pre+n+"/",fn,c)}else{c.n++;await fn(h,pre+n)}}}
+const impl={
+  async list_dir(b,{path}){const d=await dirAt(b,parts(path));const o=[];for await(const [n,h] of d.entries())o.push((h.kind==="directory"?"[資料夾] ":"[檔案] ")+n);return o.sort().join("\n")||"（空資料夾）"},
+  async read_file(b,{path}){const a=parts(path),n=a.pop();const t=await(await(await(await dirAt(b,a)).getFileHandle(n)).getFile()).text();return t.length>60000?t.slice(0,60000)+"\n…（已截斷）":t},
+  async write_file(b,{path,content}){
+    const a=parts(path),n=a.pop();if(!n)throw new Error("缺少檔名");
+    if(!S.autoWrite&&!confirm("寫入檔案：/"+[...a,n].join("/")+"（"+content.length+" 字）\n允許嗎？"))return "使用者拒絕寫入。";
+    const w=await(await(await dirAt(b,a,true)).getFileHandle(n,{create:true})).createWritable();await w.write(content);await w.close();return "已寫入 /"+[...a,n].join("/")},
+  async search(b,{query,path}){const q=query.toLowerCase(),out=[],pa=parts(path);
+    await walk(await dirAt(b,pa),pa.join("/")+(pa.length?"/":""),async(h,p)=>{if(out.length>=50)return;const f=await h.getFile();if(f.size>200000)return;let t;try{t=await f.text()}catch(e){return}if(t.includes("\0"))return;t.split("\n").forEach((l,i)=>{if(out.length<50&&l.toLowerCase().includes(q))out.push(p+":"+(i+1)+": "+l.trim().slice(0,160))})},{n:0});
+    return out.join("\n")||"沒有找到符合的內容。"},
+  async append_file(b,{path,content}){const a=parts(path),n=a.pop();if(!n)throw new Error("缺少檔名");
+    if(!S.autoWrite&&!confirm("附加內容到 /"+[...a,n].join("/")+"\n允許嗎？"))return "使用者拒絕寫入。";
+    const d=await dirAt(b,a,true);let old="";try{old=await(await(await d.getFileHandle(n)).getFile()).text()}catch(e){}
+    const w=await(await d.getFileHandle(n,{create:true})).createWritable();await w.write(old+content);await w.close();return "已附加到 /"+[...a,n].join("/")},
+  async replace_in_file(b,{path,find,replace}){const a=parts(path),n=a.pop();const d=await dirAt(b,a);const fh=await d.getFileHandle(n);const old=await(await fh.getFile()).text();
+    if(!old.includes(find))throw new Error("找不到要取代的文字");
+    if(!S.autoWrite&&!confirm("修改檔案 /"+[...a,n].join("/")+"\n允許嗎？"))return "使用者拒絕寫入。";
+    const w=await fh.createWritable();await w.write(old.replace(find,()=>replace));await w.close();return "已修改 /"+[...a,n].join("/")},
+  async delete_file(b,{path}){const a=parts(path),n=a.pop();if(!n)throw new Error("缺少檔名");
+    if(!confirm("刪除檔案 /"+[...a,n].join("/")+"？此操作無法復原。"))return "使用者拒絕刪除。";
+    await(await dirAt(b,a)).removeEntry(n);return "已刪除 /"+[...a,n].join("/")}
+};
+
+/* ---------- LLM 轉接 ---------- */
+async function post(url,headers,body){
+  for(let k=0;;k++){
+    const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json",...headers},body:JSON.stringify(body),signal:ctl.signal});
+    const t=await r.text();if(r.ok)return JSON.parse(t);
+    if((r.status===429||r.status>=500)&&k<2){await new Promise(ok=>setTimeout(ok,1500*(k+1)));continue}
+    throw new Error("HTTP "+r.status+"："+t.slice(0,300));
+  }}
+function loadPuter(){return window.puter?Promise.resolve():new Promise((ok,no)=>{const s=document.createElement("script");s.src="https://js.puter.com/v2/";s.onload=ok;s.onerror=()=>no(new Error("無法載入 puter.js，請確認網路連線"));document.head.append(s)})}
+async function promptChat(c,h,tools,sys){
+  if(c.prov==="puter")await loadPuter();
+  let s=sys;
+  if(tools.length)s+="\n\n你可以呼叫工具。需要時只輸出下列格式的區塊（可多個），輸出後立刻停止，等待結果：\n```tool\n{\"name\":\"工具名\",\"args\":{\"參數\":\"值\"}}\n```\n可用工具：\n"+tools.map(t=>"- "+t.name+"（"+t.description+"）參數："+Object.keys(t.props).join("、")).join("\n");
+  const msgs=[{role:"system",content:s}];
+  for(const m of h){
+    if(m.r==="u")msgs.push({role:"user",content:m.t});
+    else if(m.r==="a")msgs.push({role:"assistant",content:(m.t||"")+(m.calls||[]).map(x=>"\n```tool\n"+JSON.stringify({name:x.name,args:x.args})+"\n```").join("")});
+    else msgs.push({role:"user",content:"【工具結果】\n"+m.results.map(r=>r.name+"：\n"+r.out).join("\n---\n")});
+  }
+  let t;
+  if(c.prov==="puter"){
+    const r=await puter.ai.chat(msgs,{model:c.model});
+    if(ctl&&ctl.signal.aborted){const e=new Error("abort");e.name="AbortError";throw e}
+    const c0=r&&r.message?r.message.content:r;
+    t=typeof c0==="string"?c0:Array.isArray(c0)?c0.map(x=>x.text||"").join(""):String(r);
+  }else{
+    const base=c.base.replace(/\/+$/,"");
+    if(c.prov==="anthropic"){
+      const j=await post(base+"/v1/messages",{"x-api-key":c.key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},{model:c.model,max_tokens:4096,system:s,messages:msgs.slice(1)});
+      t=j.content.filter(x=>x.type==="text").map(x=>x.text).join("\n");
+    }else{
+      const j=await post(base+"/chat/completions",c.key?{Authorization:"Bearer "+c.key}:{},{model:c.model,messages:msgs});
+      t=j.choices[0].message.content||"";
+    }
+  }
+  const calls=[];
+  t=t.replace(/```tool\s*([\s\S]*?)```/g,(_,j)=>{try{const o=JSON.parse(j);if(o.name)calls.push({id:uid(),name:o.name,args:o.args||{}})}catch(e){}return""}).trim();
+  return{t,calls};
+}
+async function llm(c,h,tools,sys){
+  if(c.prov==="puter"||(tools.length&&c.tm==="prompt"))return promptChat(c,h,tools,sys);
+  try{return await nativeLlm(c,h,tools,sys)}
+  catch(e){
+    if(tools.length&&c.tm!=="native"&&/does not support tool|not support tool|tools? (is |are )?not supported|不支援/i.test(e.message)){
+      c.tm="prompt";save();L("s","「"+c.name+"」的模型不支援原生工具呼叫，已自動改用提示詞模式（已記住，可在 AI 設定中修改）。");
+      return promptChat(c,h,tools,sys);
+    }
+    throw e;
+  }
+}
+async function nativeLlm(c,h,tools,sys){
+  const base=c.base.replace(/\/+$/,"");
+  if(c.prov==="anthropic"){
+    const msgs=h.map(m=>m.r==="u"?{role:"user",content:m.t}:m.r==="a"?{role:"assistant",content:[...(m.t?[{type:"text",text:m.t}]:[]),...(m.calls||[]).map(x=>({type:"tool_use",id:x.id,name:x.name,input:x.args}))]}:{role:"user",content:m.results.map(r=>({type:"tool_result",tool_use_id:r.id,content:r.out}))});
+    const body={model:c.model,max_tokens:4096,system:sys,messages:msgs};
+    if(tools.length)body.tools=tools.map(t=>({name:t.name,description:t.description,input_schema:{type:"object",properties:t.props,required:t.req}}));
+    const j=await post(base+"/v1/messages",{"x-api-key":c.key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body);
+    return{t:j.content.filter(x=>x.type==="text").map(x=>x.text).join("\n"),calls:j.content.filter(x=>x.type==="tool_use").map(x=>({id:x.id,name:x.name,args:x.input||{}}))};
+  }
+  const msgs=[{role:"system",content:sys}];
+  for(const m of h){if(m.r==="u")msgs.push({role:"user",content:m.t});else if(m.r==="a"){const o={role:"assistant",content:m.t||null};if(m.calls&&m.calls.length)o.tool_calls=m.calls.map(x=>({id:x.id,type:"function",function:{name:x.name,arguments:JSON.stringify(x.args)}}));msgs.push(o)}else m.results.forEach(r=>msgs.push({role:"tool",tool_call_id:r.id,content:r.out}))}
+  const body={model:c.model,messages:msgs};
+  if(tools.length)body.tools=tools.map(t=>({type:"function",function:{name:t.name,description:t.description,parameters:{type:"object",properties:t.props,required:t.req}}}));
+  const j=await post(base+"/chat/completions",c.key?{Authorization:"Bearer "+c.key}:{},body);
+  const m=j.choices[0].message;
+  return{t:m.content||"",calls:(m.tool_calls||[]).map(x=>{let g={};try{g=JSON.parse(x.function.arguments||"{}")}catch(e){}return{id:x.id,name:x.function.name,args:g}})};
+}
+
+/* ---------- 單一角色執行 ---------- */
+async function agent(role,msg,extraSys,tag){
+  const cfg=llmOf(role),tools=TOOLS.filter(t=>role.tools.includes(t.name));
+  let base=root;for(const n of parts(role.dir))base=await base.getDirectoryHandle(n,{create:true});
+  const sys=role.sys+(extraSys||"")+"\n【輸出格式】一律使用 Markdown。你無法直接產生 .pptx 或 .pdf 檔，系統會把你的 Markdown 轉成下載檔。若任務是製作簡報，請用單獨一行 --- 分隔每張投影片，每張以「# 標題」開頭，接著 3 到 6 個「- 」條列重點；第一張為封面（只有標題與副標題）。"+"\n你的工作範圍是資料匣中的「"+(role.dir||"根目錄")+"」，路徑一律使用相對於此範圍的路徑。使用繁體中文。";
+  const h=[{r:"u",t:msg}];let last="";
+  for(let i=0;i<(role.max||8);i++){
+    setStat((tag||"")+" · "+role.name+" 第 "+(i+1)+" 輪：等待 AI 回應…");const r=await llm(cfg,h,tools,sys);h.push({r:"a",t:r.t,calls:r.calls});if(r.t)last=r.t;
+    if(!r.calls.length)return last;
+    const results=[];
+    for(const c of r.calls){setStat((tag||"")+" · "+role.name+"：執行工具 "+c.name+" "+(c.args.path||""));let out;try{if(!role.tools.includes(c.name))throw new Error("此角色未被授權使用 "+c.name);out=String(await impl[c.name](base,c.args))}catch(e){out="錯誤："+(e.message||e)}
+      results.push({id:c.id,name:c.name,args:c.args,out});T(c.name,c.args,out)}
+    h.push({r:"t",results});
+  }
+  return last+"\n（已達此角色的工具輪數上限）";
+}
+
+/* ---------- 人工關卡 ---------- */
+function gate(title,text){
+  return new Promise(ok=>{
+    setStat("等待你核准…");const d=L("h gate","",title),ta=document.createElement("textarea");ta.value=text;ta.style.width="100%";
+    const r=document.createElement("div");r.className="row";
+    const y=document.createElement("button");y.className="pri";y.textContent="核准並繼續（可先修改上方內容）";
+    const n=document.createElement("button");n.textContent="終止流程";
+    y.onclick=()=>{d.querySelectorAll("button").forEach(b=>b.disabled=true);ta.disabled=true;logs.push("（已核准）");ok(ta.value)};
+    n.onclick=()=>{d.querySelectorAll("button").forEach(b=>b.disabled=true);ta.disabled=true;logs.push("（已終止）");ok(null)};
+    r.append(y,n);d.append(ta,r);log.scrollTop=1e9;
+  });
+}
+
+/* ---------- 流程執行 ---------- */
+async function runFlow(){
+  const f=S.flows[S.cf],goal=$("#goal").value.trim();
+  if(!goal){alert("請先輸入總目標");return}
+  busy=true;ctl=new AbortController();$("#run").hidden=true;$("#stop").hidden=false;log.innerHTML="";document.body.dataset.v="run";
+  const t0=Date.now(),stamp=new Date().toISOString().slice(0,16).replace(/[:T]/g,"-");
+  logs=["# 執行紀錄：「"+f.name+"」\n總目標："+goal];
+  let i=+$("#from").value||0,prev=i?"（從第 "+(i+1)+" 步開始，無前一步輸出）":"",work="",fb="",loops=0,lastWork=-1;
+  L("s","流程開始：「"+f.name+"」"+(i?"，從第 "+(i+1)+" 步起":""));progInit(f,i);t0s=Date.now();clearInterval(tick);tick=setInterval(drawStat,1000);setStat("準備中…");
+  const saveOut=async(n,role,out)=>{if(!S.saveRuns)return;try{const d=await(await root.getDirectoryHandle("_runs",{create:true})).getDirectoryHandle(stamp,{create:true});const w=await(await d.getFileHandle("step"+n+"-"+role.name.replace(/[\\\/:*?"<>|\s]/g,"_")+".md",{create:true})).createWritable();await w.write(out);await w.close()}catch(e){}};
+  try{
+    while(i<f.steps.length){
+      const s0=f.steps[i],role0=S.roles.find(r=>r.id===s0.role);
+      if(!role0){L("e","第 "+(i+1)+" 步的角色已被刪除");break}
+      const grp=[i];
+      if(s0.type==="work")while(f.steps[grp[grp.length-1]+1]&&f.steps[grp[grp.length-1]+1].par&&f.steps[grp[grp.length-1]+1].type==="work")grp.push(grp[grp.length-1]+1);
+      if(s0.gate){const g=await gate("第 "+(i+1)+" 步前的人工核准（"+role0.name+"）",prev||"（尚無前一步輸出）");if(g===null){L("s","已由使用者終止。");break}prev=g}
+      const one=async idx=>{
+        const st=f.steps[idx],role=S.roles.find(r=>r.id===st.role);
+        if(!role)throw new Error("第 "+(idx+1)+" 步的角色已被刪除");
+        let msg="【總目標】\n"+goal+"\n\n【本步驟任務】\n"+(st.task||"依職責處理")+"\n\n【上一步輸出】\n"+(prev||"（無）"),extra="";
+        if(st.type==="review"){extra="\n第一行只能寫 PASS 或 FAIL，之後才說明理由。";msg+="\n\n請審核「上一步輸出」。"}
+        else if(fb)msg+="\n\n【審核意見，請逐點修改】\n"+fb+"\n\n【你上一版的輸出】\n"+work;
+        L("s","第 "+(idx+1)+" 步 · "+role.name+(st.type==="review"?"（審核）":"")+" ｜AI："+llmOf(role).name+(grp.length>1?" ｜並行":""));
+        setSt(idx,"run");const t=Date.now(),out=await agent(role,msg,extra,"第 "+(idx+1)+" 步");
+        {const card=L("a",out,role.name+" · "+((Date.now()-t)/1000).toFixed(1)+" 秒");card.dataset.step=idx}stepSec[idx]=((Date.now()-t)/1000).toFixed(1);setSt(idx,"ok");
+        await saveOut(idx+1,role,out);
+        return out;
+      };
+      const outs=await Promise.all(grp.map(one));
+      if(s0.type==="review"){
+        const out=outs[0];
+        if(/^\s*PASS/i.test(out)){prev=work||prev;i++}
+        else if(loops<(f.maxLoops||0)&&lastWork>=0){loops++;fb=out;setSt(i,"bad");for(let j=lastWork;j<i;j++)setSt(j,"wait");L("s","審核未通過，退回第 "+(lastWork+1)+" 步（第 "+loops+"/"+f.maxLoops+" 次）");prev=work;i=lastWork}
+        else{L("e","審核未通過且已達退回上限，流程繼續往下。");prev=work||prev;i++}
+      }else{
+        work=outs.length>1?outs.map((o,k)=>"## "+S.roles.find(r=>r.id===f.steps[grp[k]].role).name+"\n"+o).join("\n\n"):outs[0];
+        prev=work;lastWork=i;fb="";i=grp[grp.length-1]+1;
+      }
+    }
+    L("s","流程結束，共 "+((Date.now()-t0)/1000).toFixed(1)+" 秒。");finalCard(prev);
+  }catch(e){L("e",e.name==="AbortError"?"已停止。":"執行失敗："+e.message+"\n請檢查 API 網址、Key、模型，以及該服務是否允許瀏覽器直接連線。")}
+  pushHist(f.name,goal);
+  clearInterval(tick);chipSt=chipSt.map(x=>x==="run"?"err":x);progDraw(f);busy=false;setStat("結束，共 "+Math.floor((Date.now()-t0s)/1000)+" 秒");$("#run").hidden=false;$("#stop").hidden=true;ready();
+}
+$("#run").onclick=runFlow;
+$("#stop").onclick=()=>ctl&&ctl.abort();
+
+/* ---------- 啟動 ---------- */
+const jump=n=>{const c=[...log.querySelectorAll('[data-step="'+n.dataset.j+'"]')].pop();if(c){document.body.dataset.v="run";c.scrollIntoView({behavior:"smooth",block:"start"})}};
+$("#chips").addEventListener("click",e=>{const n=e.target.closest(".note");if(n)jump(n)});
+$("#chips").addEventListener("keydown",e=>{const n=e.target.closest(".note");if(n&&(e.key==="Enter"||e.key===" ")){e.preventDefault();jump(n)}});
+$("#ptog").onclick=()=>{const c=$("#prog").classList.toggle("col");$("#ptog").textContent=c?"展開便利貼":"收合便利貼"};
+$("#tabs").onclick=e=>{const b=e.target.closest("button");if(!b)return;document.body.dataset.v=b.dataset.v;document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("on",x===b))};
+new MutationObserver(()=>document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("on",x.dataset.v===document.body.dataset.v))).observe(document.body,{attributes:true,attributeFilter:["data-v"]});
+$("#goal").addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)&&!$("#run").disabled&&!$("#run").hidden)runFlow()});
+(async()=>{
+  const h=await hGet();
+  if(h){try{if(await h.queryPermission({mode:"readwrite"})==="granted"){root=h;rootMsg="目前開放：/"+h.name}else rootMsg="「"+h.name+"」需重新授權，請再按一次選擇資料匣。"}catch(e){}}
+  render();
+})();
+</script>
+</body>
+</html>

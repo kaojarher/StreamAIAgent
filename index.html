@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>小蝦 v4.1 · 多角色工作流</title>
+<title>小蝦 v6 · 多角色工作流</title>
 <style>
 :root{--bg:#f3f5f4;--panel:#fff;--ink:#17211f;--mute:#5d6b67;--line:#d6dddb;--accent:#0f6b5c;--accent-ink:#fff;--tool:#eef3f1;--warn:#a8431f;--soft:#e3efe9}
 @media (prefers-color-scheme:dark){:root{--bg:#121816;--panel:#1a2320;--ink:#e6eeeb;--mute:#93a39e;--line:#2b3733;--accent:#4fc3a8;--accent-ink:#06211b;--tool:#202b28;--warn:#e88b65;--soft:#22342e}}
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}body{height:100dvh}
-body{font:14px/1.55 "Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;background:var(--bg);color:var(--ink);display:grid;grid-template-columns:clamp(320px,30vw,420px) 1fr;overflow:hidden}
+body{font:14px/1.55 "Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;background:var(--bg);color:var(--ink);display:grid;grid-template-columns:clamp(320px,30vw,420px) 1fr;grid-template-rows:minmax(0,1fr);overflow:hidden}#log{min-height:0}
 aside{background:var(--panel);border-right:1px solid var(--line);padding:14px;overflow:auto}
 main{display:flex;flex-direction:column;min-width:0;height:100%}
 h1{font-size:18px;margin:0 0 10px}
@@ -34,7 +34,36 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .bar textarea{flex:1;height:58px}
 #log{flex:1;overflow:auto;padding:16px max(16px,calc((100% - 820px)/2))}
 .m{margin:0 0 12px;padding:9px 13px;border-radius:10px;white-space:pre-wrap;word-break:break-word;background:var(--panel);border:1px solid var(--line)}
-.m .who{display:block;font-size:12px;color:var(--accent);margin-bottom:2px}.m.md{white-space:normal}.md h3,.md h4,.md h5,.md h6{margin:.6em 0 .2em;font-size:1em}.md pre{background:var(--tool);padding:8px;border-radius:6px;overflow:auto;white-space:pre-wrap}.md code{background:var(--tool);padding:0 4px;border-radius:4px}.md .li{padding-left:.5em}.cp{display:block;margin-top:6px;font-size:12px;padding:3px 8px;min-height:0}#tabs{display:none}
+.m .who{display:block;font-size:12px;color:var(--accent);margin-bottom:2px}.m.md{white-space:normal}.md h3,.md h4,.md h5,.md h6{margin:.6em 0 .2em;font-size:1em}.md pre{background:var(--tool);padding:8px;border-radius:6px;overflow:auto;white-space:pre-wrap}.md code{background:var(--tool);padding:0 4px;border-radius:4px}.md .li{padding-left:.5em}.cp{font-size:12px;padding:3px 10px;min-height:0}.dls{margin-top:8px}
+.m.md .body{max-height:65vh;overflow:auto;padding-right:4px}
+.md p,.md ul,.md ol{margin:.4em 0}.md ul,.md ol{padding-left:1.4em}
+.md table{border-collapse:collapse;display:block;overflow-x:auto;margin:.5em 0}.md th,.md td{border:1px solid var(--line);padding:4px 8px;white-space:nowrap}.md th{background:var(--tool)}
+.md blockquote{margin:.5em 0;padding-left:10px;border-left:3px solid var(--accent);color:var(--mute)}.md hr{border:0;border-top:1px solid var(--line);margin:.8em 0}
+#prog{padding:8px 18px;border-bottom:1px solid var(--line);background:var(--panel)}
+.pbar{height:8px;background:var(--tool);border-radius:4px;overflow:hidden}.pbar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+#stat{font-size:13px;color:var(--mute);margin-top:4px}
+#chips{display:flex;gap:6px;overflow-x:auto;padding-top:6px}
+.srow{display:flex;justify-content:space-between;align-items:center;gap:8px}
+#prog.col #chips{display:none}
+#chips{display:flex;align-items:stretch;gap:4px;overflow-x:auto;padding:14px 6px 10px}
+.grp{display:flex;flex-direction:column;gap:14px;justify-content:center}
+.arr{align-self:center;color:var(--mute);font-size:20px;padding:0 2px}
+.note{--bgc:#fff3a3;position:relative;flex:none;width:170px;min-height:112px;padding:16px 12px 12px;background:var(--bgc);color:#2b2b1f;border-radius:2px 2px 16px 2px;box-shadow:0 3px 8px rgba(0,0,0,.25);font-size:13px;line-height:1.4;transform:rotate(var(--rot,-1.2deg));cursor:pointer;transition:transform .2s,opacity .2s}
+.note:hover{transform:rotate(0) translateY(-2px)}
+.note::before{content:"";position:absolute;top:-7px;left:50%;width:46px;height:14px;margin-left:-23px;background:rgba(255,255,255,.6);box-shadow:0 1px 2px rgba(0,0,0,.18)}
+.note b{display:block;font-size:14px}
+.note .tk{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin:4px 0 6px}
+.note small{display:block;color:#5a5a45;font-size:11px}
+.note .stamp{position:absolute;right:8px;bottom:8px;font-size:12px;font-weight:700;border:2px solid currentColor;border-radius:6px;padding:0 6px;transform:rotate(-8deg);background:rgba(255,255,255,.35)}
+.note.c0{--bgc:#fff3a3}.note.c1{--bgc:#ffc9d9}.note.c2{--bgc:#bfe3ff}.note.c3{--bgc:#c8f0c0}.note.c4{--bgc:#ffd9a8}.note.c5{--bgc:#e0cdfb}
+.note.wait{opacity:.85}.note.skip{opacity:.45}
+.note.run{outline:3px solid var(--accent);animation:pulse 1.4s ease-in-out infinite}
+.note.run .stamp{color:#0f6b5c}.note.ok .stamp{color:#1b6b3a}
+.note.bad{outline:3px dashed #c4501f}.note.bad .stamp,.note.err .stamp{color:#c4501f}
+@keyframes pulse{50%{transform:rotate(0) scale(1.04)}}
+@media (prefers-reduced-motion:reduce){.note.run{animation:none}}
+.chip{white-space:nowrap;font-size:12px;border:1px solid var(--line);border-radius:999px;padding:2px 10px;background:var(--bg)}
+.chip.run{border-color:var(--accent);color:var(--accent);font-weight:600}.chip.ok{background:var(--soft)}.chip.bad,.chip.err{border-color:var(--warn);color:var(--warn)}.chip.skip{opacity:.5}#tabs{display:none}
 .m.h{background:var(--soft);border-color:var(--accent)}
 .m.e{border-color:var(--warn);color:var(--warn)}
 .m.s{background:none;border:0;color:var(--mute);padding:2px 4px;font-size:13px}
@@ -54,7 +83,7 @@ input,select,textarea{font-size:16px}button{min-height:40px}
 .bar{flex-direction:column;padding:10px 12px}.bar textarea{width:100%;flex:none}
 .bar .acts{flex-direction:row!important;flex-wrap:wrap;align-items:stretch!important;width:100%}
 .bar .acts>*{flex:1 1 140px}
-#log{padding:12px}
+#log{padding:12px}.bar textarea{height:48px}.m.md .body{max-height:55dvh}#prog{padding:8px 12px}
 }
 </style>
 </head>
@@ -71,6 +100,7 @@ input,select,textarea{font-size:16px}button{min-height:40px}
       <select id="hist" title="歷史紀錄"></select>
     </div>
   </div>
+  <div id="prog" hidden><div class="pbar"><i id="pfill"></i></div><div class="srow"><div id="stat"></div><button class="cp" id="ptog">收合便利貼</button></div><div id="chips"></div></div>
   <div id="log"></div>
 </main>
 
@@ -133,7 +163,7 @@ const llmFields=(p,o)=>provSel(p+".prov",o.prov)+(o.prov==="puter"?"":fld(p+".ba
 
 function render(){
   const L0=S.llms[S.cl],f=S.flows[S.cf],roleOpts=v=>S.roles.map(r=>`<option value="${r.id}"${r.id==v?" selected":""}>${esc(r.name)}</option>`).join("");
-  $("#side").innerHTML=`<h1>小蝦 v4.1 · 工作流</h1>
+  $("#side").innerHTML=`<h1>小蝦 v6 · 工作流</h1>
   <section><details open><summary>資料匣</summary>
     <button class="pri" data-act="pick" style="width:100%;margin-top:6px">選擇開放的資料匣</button>
     <div class="folder ${root?"":"bad"}">${esc(rootMsg)}</div>
@@ -165,7 +195,7 @@ function render(){
   <section><details><summary>範例與匯出入</summary><div class="row" style="margin-top:6px">
     <button data-act="sample">載入範例</button><button data-act="export">匯出 JSON</button><button data-act="import">匯入 JSON</button></div>
     <p style="color:var(--mute);font-size:12px">匯出時不含 API Key。</p></details></section>`;
-  fillFrom();ready();
+  if(!busy)chipSt=[];fillFrom();progDraw();ready();
 }
 function ready(){$("#run").disabled=busy||!root||!S.flows[S.cf]||!S.flows[S.cf].steps.length}
 
@@ -210,12 +240,116 @@ side.addEventListener("change",e=>{const a=e.target.dataset.act;if(a==="pickflow
 
 /* ---------- 紀錄 ---------- */
 const log=$("#log");
-function md(t){const bl=[];t=esc(t).replace(/```[^\n]*\n([\s\S]*?)```/g,(_,c)=>{bl.push(c);return "\u0000"+(bl.length-1)+"\u0000"});
-  t=t.split("\n").map(l=>{let m;if(m=l.match(/^(#{1,4})\s+(.*)/))return "<h"+(m[1].length+2)+">"+m[2]+"</h"+(m[1].length+2)+">";if(m=l.match(/^\s*[-*]\s+(.*)/))return '<div class="li">• '+m[1]+"</div>";return l+"<br>"}).join("");
-  t=t.replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/`([^`]+)`/g,"<code>$1</code>");
-  return t.replace(/\u0000(\d+)\u0000/g,(_,i)=>"<pre>"+bl[i]+"</pre>")}
+function md(t){
+  const bl=[];t=t.replace(/```[^\n]*\n([\s\S]*?)```/g,(_,c)=>{bl.push(c);return "\n\u0000"+(bl.length-1)+"\u0000\n"});
+  const inl=x=>esc(x).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/`([^`]+)`/g,"<code>$1</code>").replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  const Ls=t.split("\n"),o=[],LI=/^\s*([-*]|\d+\.)\s+/,TB=/^\s*\|.*\|\s*$/;let i=0;
+  while(i<Ls.length){
+    const l=Ls[i];let m;
+    if(/^\u0000\d+\u0000$/.test(l.trim())){o.push("<pre>"+esc(bl[+l.trim().slice(1,-1)])+"</pre>");i++}
+    else if(m=l.match(/^(#{1,6})\s+(.*)/)){const n=Math.min(m[1].length+2,6);o.push("<h"+n+">"+inl(m[2])+"</h"+n+">");i++}
+    else if(/^\s*(---+|\*\*\*+)\s*$/.test(l)){o.push("<hr>");i++}
+    else if(TB.test(l)){const rows=[];while(i<Ls.length&&TB.test(Ls[i])){rows.push(Ls[i]);i++}
+      const cells=r=>r.trim().replace(/^\||\|$/g,"").split("|").map(x=>x.trim());
+      o.push("<table>"+rows.filter(r=>!/^\s*\|[\s:|-]+\|\s*$/.test(r)).map((r,k)=>"<tr>"+cells(r).map(c=>(k?"<td>":"<th>")+inl(c)+(k?"</td>":"</th>")).join("")+"</tr>").join("")+"</table>")}
+    else if(LI.test(l)){const ord=/^\s*\d+\./.test(l),it=[];while(i<Ls.length&&LI.test(Ls[i])){it.push(Ls[i].replace(LI,""));i++}
+      o.push((ord?"<ol>":"<ul>")+it.map(x=>"<li>"+inl(x)+"</li>").join("")+(ord?"</ol>":"</ul>"))}
+    else if(/^>\s?/.test(l)){const q=[];while(i<Ls.length&&/^>\s?/.test(Ls[i])){q.push(Ls[i].replace(/^>\s?/,""));i++}o.push("<blockquote>"+q.map(inl).join("<br>")+"</blockquote>")}
+    else if(!l.trim())i++;
+    else{const p=[];while(i<Ls.length&&Ls[i].trim()&&!/^(#{1,6}\s|>|\u0000)/.test(Ls[i])&&!LI.test(Ls[i])&&!TB.test(Ls[i])&&!/^\s*---+\s*$/.test(Ls[i])){p.push(Ls[i]);i++}
+      if(!p.length){p.push(Ls[i]);i++}o.push("<p>"+p.map(inl).join("<br>")+"</p>")}
+  }
+  return o.join("")}
+const strip=x=>String(x).replace(/\*\*(.+?)\*\*/g,"$1").replace(/`([^`]+)`/g,"$1").replace(/\[([^\]]+)\]\([^)]+\)/g,"$1");
+const titleOf=(t,n)=>{const m=t.match(/^#{1,6}\s+(.*)/m);return strip(m?m[1]:(n||"output")).trim()||"output"};
+const fname=(t,n)=>titleOf(t,n).replace(/[\\\/:*?"<>|\s]+/g,"_").slice(0,40);
+
+/* PDF：使用瀏覽器列印（可完整支援中文），在列印視窗選「另存為 PDF」 */
+function toPdf(txt,name){
+  const css='body{font:14px/1.7 "Noto Sans TC","Microsoft JhengHei",sans-serif;color:#111;margin:24px}h3{font-size:1.6em}h4{font-size:1.3em}h3,h4,h5,h6{margin:1em 0 .3em}pre{background:#f3f3f3;padding:8px;white-space:pre-wrap}code{background:#f3f3f3;padding:0 3px}table{border-collapse:collapse;margin:.5em 0}td,th{border:1px solid #bbb;padding:4px 8px}th{background:#eee}blockquote{border-left:3px solid #999;margin:.5em 0;padding-left:10px;color:#555}hr{border:0;border-top:1px solid #ccc}';
+  const f=document.createElement("iframe");f.style.cssText="position:fixed;right:0;bottom:0;width:0;height:0;border:0";document.body.append(f);
+  f.srcdoc='<!doctype html><meta charset="utf-8"><title>'+esc(titleOf(txt,name))+"</title><style>"+css+"</style>"+md(txt);
+  f.onload=()=>setTimeout(()=>{f.contentWindow.focus();f.contentWindow.print();setTimeout(()=>f.remove(),60000)},250);
+  setStat("請在列印視窗的「目的地」選擇「另存為 PDF」");
+}
+
+/* PPTX：把 Markdown 轉成投影片（以 --- 分頁；沒有 --- 則依 # / ## 標題分頁） */
+let pptxP=null;
+function loadPptx(){
+  if(window.PptxGenJS)return Promise.resolve();if(pptxP)return pptxP;
+  const urls=["https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js","https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js"];
+  pptxP=(async()=>{for(const u of urls){try{await new Promise((ok,no)=>{const e=document.createElement("script");e.src=u;e.onload=ok;e.onerror=no;document.head.append(e)});if(window.PptxGenJS)return}catch(e){}}throw new Error("無法載入 PPTX 產生器（pptxgenjs），請確認網路連線")})();
+  pptxP.catch(()=>pptxP=null);return pptxP}
+function mdSlides(txt){
+  txt=txt.replace(/```[^\n]*\n([\s\S]*?)```/g,(_,c)=>c);
+  const parts=/^\s*---+\s*$/m.test(txt)?txt.split(/^\s*---+\s*$/m):txt.split(/^(?=#{1,2}\s)/m);
+  return parts.map(c=>c.trim()).filter(Boolean).map(c=>{
+    let title="";const items=[],tbl=[];
+    for(const raw of c.split("\n")){const l=raw.trimEnd();if(!l.trim())continue;let m;
+      if(m=l.match(/^#{1,6}\s+(.*)/)){if(!title)title=m[1];else items.push({t:m[1],head:true});continue}
+      if(/^\s*\|.*\|\s*$/.test(l)){if(!/^\s*\|[\s:|-]+\|\s*$/.test(l))tbl.push(l.trim().replace(/^\||\|$/g,"").split("|").map(x=>x.trim()));continue}
+      if(m=l.match(/^(\s*)([-*]|\d+\.)\s+(.*)/)){items.push({t:m[3],bul:true,lv:Math.min(2,Math.floor(m[1].length/2))});continue}
+      items.push({t:l.replace(/^>\s?/,"").trim()})}
+    return{title,items,tbl}})}
+async function toPptx(txt,name){
+  await loadPptx();
+  const slides=mdSlides(txt);if(!slides.length)throw new Error("沒有可轉換的內容");
+  const p=new PptxGenJS();p.layout="LAYOUT_16x9";p.title=titleOf(txt,name);
+  const F="標楷體",INK="17211F",AC="0F6B5C";
+  slides.forEach((sl,idx)=>{
+    const chunks=[];for(let k=0;k<Math.max(1,sl.items.length);k+=7)chunks.push(sl.items.slice(k,k+7));
+    chunks.forEach((its,ci)=>{
+      const s=p.addSlide();s.background={color:"FFFFFF"};
+      s.addShape(p.ShapeType.rect,{x:0,y:0,w:0.18,h:5.625,fill:{color:AC}});
+      const title=(sl.title||p.title)+(ci?"（續）":"");
+      if(idx===0&&!ci&&!sl.items.some(x=>x.bul)&&!sl.tbl.length){
+        s.addText(title,{x:0.8,y:1.6,w:8.4,h:1.4,fontFace:F,fontSize:36,bold:true,color:AC,fit:"shrink"});
+        if(its.length)s.addText(its.map(x=>strip(x.t)).join("\n"),{x:0.8,y:3.1,w:8.4,h:1.6,fontFace:F,fontSize:18,color:"5D6B67",valign:"top",fit:"shrink"});
+        return}
+      s.addText(title,{x:0.5,y:0.3,w:9,h:0.9,fontFace:F,fontSize:28,bold:true,color:AC,fit:"shrink"});
+      const hasT=sl.tbl.length&&!ci;
+      if(its.length)s.addText(its.map(x=>{const o={breakLine:true,fontSize:its.length>5?16:18,color:INK,fontFace:F,bold:!!x.head};if(x.bul){o.bullet={indent:18};o.indentLevel=x.lv||0}return{text:strip(x.t),options:o}}),{x:0.5,y:1.3,w:9,h:hasT?1.9:3.8,valign:"top",fit:"shrink"});
+      if(hasT)s.addTable(sl.tbl.map((r,ri)=>r.map(c=>{const o={bold:ri===0,fontFace:F,fontSize:13,color:INK};if(ri===0)o.fill={color:"E3EFE9"};return{text:strip(c),options:o}})),{x:0.5,y:its.length?3.3:1.4,w:9,border:{type:"solid",color:"D6DDDB",pt:1}});
+    })});
+  await p.writeFile({fileName:fname(txt,name)+".pptx"});
+}
+
+/* 下載按鈕列 */
+function dlRow(txt,name){
+  name=String(name||"").split(" · ")[0];
+  const r=document.createElement("div");r.className="row dls";
+  const mk=(t,fn)=>{const b=document.createElement("button");b.className="cp";b.textContent=t;b.onclick=async()=>{b.disabled=true;b.textContent="處理中…";try{await fn()}catch(e){alert(e.message||e)}b.disabled=false;b.textContent=t};r.append(b)};
+  mk("複製",()=>navigator.clipboard.writeText(txt));
+  mk("下載 MD",async()=>dl(txt,fname(txt,name)+".md"));
+  mk("下載 PPTX",()=>toPptx(txt,name));
+  mk("下載 PDF",async()=>toPdf(txt,name));
+  return r}
+function finalCard(txt){if(!txt)return;const d=L("h","","最終成果（可下載）");d.append(dlRow(txt,"最終成果"))}
+
+/* 進度顯示 */
+let chipSt=[],tick=null,t0s=0,statTxt="",stepSec=[];
+const ST={wait:"待處理",run:"執行中",ok:"完成",bad:"退回修改",skip:"略過",err:"中斷"};
+function progDraw(f){
+  f=f||S.flows[S.cf];const pr=$("#prog");
+  if(!f||!f.steps.length){pr.hidden=true;return}
+  pr.hidden=false;
+  const groups=[];f.steps.forEach((st,j)=>{if(j>0&&st.par&&st.type==="work")groups[groups.length-1].push(j);else groups.push([j])});
+  const note=j=>{
+    const st=f.steps[j],r=S.roles.find(x=>x.id===st.role),k=chipSt[j]||"wait",ri=Math.max(0,S.roles.indexOf(r));
+    const fl=[st.type==="review"?"審核":"",st.par?"並行":"",st.gate?"🔒需核准":""].filter(Boolean).join("・");
+    const extra=st.type==="review"?"未通過會退回（最多 "+(f.maxLoops||0)+" 次）":"";
+    return `<div class="note c${ri%6} ${k}" data-j="${j}" tabindex="0" role="button" style="--rot:${j%2?1.2:-1.2}deg"><b>${j+1}. ${esc(r?r.name:"（角色已刪除）")}</b><span class="tk">${esc(st.task||"（依職責處理）")}</span><small>AI：${esc(r?llmOf(r).name:"?")}${fl?"・"+fl:""}</small>${extra?"<small>"+extra+"</small>":""}${stepSec[j]?"<small>耗時 "+stepSec[j]+" 秒</small>":""}${k!=="wait"?`<span class="stamp">${ST[k]}</span>`:""}</div>`};
+  $("#chips").innerHTML=groups.map(g=>`<div class="grp">${g.map(note).join("")}</div>`).join('<span class="arr">➜</span>');
+  const done=chipSt.filter(x=>x==="ok"||x==="skip").length;
+  $("#pfill").style.width=(f.steps.length?done/f.steps.length*100:0)+"%";
+  const e=$("#chips .run");if(e)e.scrollIntoView({inline:"center",block:"nearest"})}
+const progInit=(f,start)=>{stepSec=[];chipSt=f.steps.map((_,j)=>j<start?"skip":"wait");$("#prog").hidden=false;progDraw(f)};
+const setSt=(j,v)=>{chipSt[j]=v;progDraw()};
+function drawStat(){$("#stat").textContent=(busy?"⏱ "+Math.floor((Date.now()-t0s)/1000)+" 秒　":"")+statTxt}
+function setStat(t){statTxt=t;drawStat()}
+
 function L(cls,txt,who){const d=document.createElement("div");d.className="m "+cls+(cls==="a"?" md":"");if(who){const b=document.createElement("span");b.className="who";b.textContent=who;d.append(b)}
-  if(cls==="a"){const c=document.createElement("div");c.innerHTML=md(txt);d.append(c);const cp=document.createElement("button");cp.className="cp";cp.textContent="複製";cp.onclick=()=>navigator.clipboard.writeText(txt).then(()=>{cp.textContent="已複製";setTimeout(()=>cp.textContent="複製",1200)});d.append(cp)}else d.append(document.createTextNode(txt));log.append(d);log.scrollTop=1e9;logs.push((who?"### "+who+"\n":"")+txt);return d}
+  if(cls==="a"){const c=document.createElement("div");c.className="body";c.innerHTML=md(txt);d.append(c,dlRow(txt,who))}else d.append(document.createTextNode(txt));log.append(d);log.scrollTop=1e9;logs.push((who?"### "+who+"\n":"")+txt);return d}
 function T(name,args,out){const d=document.createElement("details");d.className="t";const s=document.createElement("summary");s.textContent="工具："+name+" "+(args.path||args.query||"");const p=document.createElement("pre");p.textContent=out;d.append(s,p);log.append(d);log.scrollTop=1e9;logs.push("- 工具 "+name+" "+(args.path||args.query||""))}
 function dl(txt,name,type){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([txt],{type:type||"text/markdown"}));a.download=name;a.click()}
 $("#dl").onclick=()=>dl(logs.join("\n\n"),"run-log.md");
@@ -322,16 +456,16 @@ async function nativeLlm(c,h,tools,sys){
 }
 
 /* ---------- 單一角色執行 ---------- */
-async function agent(role,msg,extraSys){
+async function agent(role,msg,extraSys,tag){
   const cfg=llmOf(role),tools=TOOLS.filter(t=>role.tools.includes(t.name));
   let base=root;for(const n of parts(role.dir))base=await base.getDirectoryHandle(n,{create:true});
-  const sys=role.sys+(extraSys||"")+"\n你的工作範圍是資料匣中的「"+(role.dir||"根目錄")+"」，路徑一律使用相對於此範圍的路徑。使用繁體中文。";
+  const sys=role.sys+(extraSys||"")+"\n【輸出格式】一律使用 Markdown。你無法直接產生 .pptx 或 .pdf 檔，系統會把你的 Markdown 轉成下載檔。若任務是製作簡報，請用單獨一行 --- 分隔每張投影片，每張以「# 標題」開頭，接著 3 到 6 個「- 」條列重點；第一張為封面（只有標題與副標題）。"+"\n你的工作範圍是資料匣中的「"+(role.dir||"根目錄")+"」，路徑一律使用相對於此範圍的路徑。使用繁體中文。";
   const h=[{r:"u",t:msg}];let last="";
   for(let i=0;i<(role.max||8);i++){
-    const r=await llm(cfg,h,tools,sys);h.push({r:"a",t:r.t,calls:r.calls});if(r.t)last=r.t;
+    setStat((tag||"")+" · "+role.name+" 第 "+(i+1)+" 輪：等待 AI 回應…");const r=await llm(cfg,h,tools,sys);h.push({r:"a",t:r.t,calls:r.calls});if(r.t)last=r.t;
     if(!r.calls.length)return last;
     const results=[];
-    for(const c of r.calls){let out;try{if(!role.tools.includes(c.name))throw new Error("此角色未被授權使用 "+c.name);out=String(await impl[c.name](base,c.args))}catch(e){out="錯誤："+(e.message||e)}
+    for(const c of r.calls){setStat((tag||"")+" · "+role.name+"：執行工具 "+c.name+" "+(c.args.path||""));let out;try{if(!role.tools.includes(c.name))throw new Error("此角色未被授權使用 "+c.name);out=String(await impl[c.name](base,c.args))}catch(e){out="錯誤："+(e.message||e)}
       results.push({id:c.id,name:c.name,args:c.args,out});T(c.name,c.args,out)}
     h.push({r:"t",results});
   }
@@ -341,7 +475,7 @@ async function agent(role,msg,extraSys){
 /* ---------- 人工關卡 ---------- */
 function gate(title,text){
   return new Promise(ok=>{
-    const d=L("h gate","",title),ta=document.createElement("textarea");ta.value=text;ta.style.width="100%";
+    setStat("等待你核准…");const d=L("h gate","",title),ta=document.createElement("textarea");ta.value=text;ta.style.width="100%";
     const r=document.createElement("div");r.className="row";
     const y=document.createElement("button");y.className="pri";y.textContent="核准並繼續（可先修改上方內容）";
     const n=document.createElement("button");n.textContent="終止流程";
@@ -359,7 +493,7 @@ async function runFlow(){
   const t0=Date.now(),stamp=new Date().toISOString().slice(0,16).replace(/[:T]/g,"-");
   logs=["# 執行紀錄：「"+f.name+"」\n總目標："+goal];
   let i=+$("#from").value||0,prev=i?"（從第 "+(i+1)+" 步開始，無前一步輸出）":"",work="",fb="",loops=0,lastWork=-1;
-  L("s","流程開始：「"+f.name+"」"+(i?"，從第 "+(i+1)+" 步起":""));
+  L("s","流程開始：「"+f.name+"」"+(i?"，從第 "+(i+1)+" 步起":""));progInit(f,i);t0s=Date.now();clearInterval(tick);tick=setInterval(drawStat,1000);setStat("準備中…");
   const saveOut=async(n,role,out)=>{if(!S.saveRuns)return;try{const d=await(await root.getDirectoryHandle("_runs",{create:true})).getDirectoryHandle(stamp,{create:true});const w=await(await d.getFileHandle("step"+n+"-"+role.name.replace(/[\\\/:*?"<>|\s]/g,"_")+".md",{create:true})).createWritable();await w.write(out);await w.close()}catch(e){}};
   try{
     while(i<f.steps.length){
@@ -375,8 +509,8 @@ async function runFlow(){
         if(st.type==="review"){extra="\n第一行只能寫 PASS 或 FAIL，之後才說明理由。";msg+="\n\n請審核「上一步輸出」。"}
         else if(fb)msg+="\n\n【審核意見，請逐點修改】\n"+fb+"\n\n【你上一版的輸出】\n"+work;
         L("s","第 "+(idx+1)+" 步 · "+role.name+(st.type==="review"?"（審核）":"")+" ｜AI："+llmOf(role).name+(grp.length>1?" ｜並行":""));
-        const t=Date.now(),out=await agent(role,msg,extra);
-        L("a",out,role.name+" · "+((Date.now()-t)/1000).toFixed(1)+" 秒");
+        setSt(idx,"run");const t=Date.now(),out=await agent(role,msg,extra,"第 "+(idx+1)+" 步");
+        {const card=L("a",out,role.name+" · "+((Date.now()-t)/1000).toFixed(1)+" 秒");card.dataset.step=idx}stepSec[idx]=((Date.now()-t)/1000).toFixed(1);setSt(idx,"ok");
         await saveOut(idx+1,role,out);
         return out;
       };
@@ -384,22 +518,26 @@ async function runFlow(){
       if(s0.type==="review"){
         const out=outs[0];
         if(/^\s*PASS/i.test(out)){prev=work||prev;i++}
-        else if(loops<(f.maxLoops||0)&&lastWork>=0){loops++;fb=out;L("s","審核未通過，退回第 "+(lastWork+1)+" 步（第 "+loops+"/"+f.maxLoops+" 次）");prev=work;i=lastWork}
+        else if(loops<(f.maxLoops||0)&&lastWork>=0){loops++;fb=out;setSt(i,"bad");for(let j=lastWork;j<i;j++)setSt(j,"wait");L("s","審核未通過，退回第 "+(lastWork+1)+" 步（第 "+loops+"/"+f.maxLoops+" 次）");prev=work;i=lastWork}
         else{L("e","審核未通過且已達退回上限，流程繼續往下。");prev=work||prev;i++}
       }else{
         work=outs.length>1?outs.map((o,k)=>"## "+S.roles.find(r=>r.id===f.steps[grp[k]].role).name+"\n"+o).join("\n\n"):outs[0];
         prev=work;lastWork=i;fb="";i=grp[grp.length-1]+1;
       }
     }
-    L("s","流程結束，共 "+((Date.now()-t0)/1000).toFixed(1)+" 秒。");
+    L("s","流程結束，共 "+((Date.now()-t0)/1000).toFixed(1)+" 秒。");finalCard(prev);
   }catch(e){L("e",e.name==="AbortError"?"已停止。":"執行失敗："+e.message+"\n請檢查 API 網址、Key、模型，以及該服務是否允許瀏覽器直接連線。")}
   pushHist(f.name,goal);
-  busy=false;$("#run").hidden=false;$("#stop").hidden=true;ready();
+  clearInterval(tick);chipSt=chipSt.map(x=>x==="run"?"err":x);progDraw(f);busy=false;setStat("結束，共 "+Math.floor((Date.now()-t0s)/1000)+" 秒");$("#run").hidden=false;$("#stop").hidden=true;ready();
 }
 $("#run").onclick=runFlow;
 $("#stop").onclick=()=>ctl&&ctl.abort();
 
 /* ---------- 啟動 ---------- */
+const jump=n=>{const c=[...log.querySelectorAll('[data-step="'+n.dataset.j+'"]')].pop();if(c){document.body.dataset.v="run";c.scrollIntoView({behavior:"smooth",block:"start"})}};
+$("#chips").addEventListener("click",e=>{const n=e.target.closest(".note");if(n)jump(n)});
+$("#chips").addEventListener("keydown",e=>{const n=e.target.closest(".note");if(n&&(e.key==="Enter"||e.key===" ")){e.preventDefault();jump(n)}});
+$("#ptog").onclick=()=>{const c=$("#prog").classList.toggle("col");$("#ptog").textContent=c?"展開便利貼":"收合便利貼"};
 $("#tabs").onclick=e=>{const b=e.target.closest("button");if(!b)return;document.body.dataset.v=b.dataset.v;document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("on",x===b))};
 new MutationObserver(()=>document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("on",x.dataset.v===document.body.dataset.v))).observe(document.body,{attributes:true,attributeFilter:["data-v"]});
 $("#goal").addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)&&!$("#run").disabled&&!$("#run").hidden)runFlow()});
