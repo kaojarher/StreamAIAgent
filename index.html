@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>小蝦 v7 · 多角色工作流</title>
+<title>小蝦 v7.1 · 多角色工作流</title>
 <style>
 :root{--bg:#f3f5f4;--panel:#fff;--ink:#17211f;--mute:#5d6b67;--line:#d6dddb;--accent:#0f6b5c;--accent-ink:#fff;--tool:#eef3f1;--warn:#a8431f;--soft:#e3efe9}
 @media (prefers-color-scheme:dark){:root{--bg:#121816;--panel:#1a2320;--ink:#e6eeeb;--mute:#93a39e;--line:#2b3733;--accent:#4fc3a8;--accent-ink:#06211b;--tool:#202b28;--warn:#e88b65;--soft:#22342e}}
@@ -160,10 +160,15 @@ const TOOLS=[
  {name:"search",description:"搜尋包含關鍵字的文字行。",props:{query:{type:"string"},path:{type:"string"}},req:["query"]},
  {name:"append_file",description:"在檔案末尾附加內容，檔案不存在則建立。",props:{path:{type:"string"},content:{type:"string"}},req:["path","content"]},
  {name:"replace_in_file",description:"將檔案中第一處 find 文字取代為 replace，適合小幅修改。",props:{path:{type:"string"},find:{type:"string"},replace:{type:"string"}},req:["path","find","replace"]},
- {name:"delete_file",description:"刪除單一檔案（每次都需使用者確認）。",props:{path:{type:"string"}},req:["path"]}
+ {name:"delete_file",description:"刪除單一檔案（每次都需使用者確認）。",props:{path:{type:"string"}},req:["path"]},
+ {name:"read_xlsx",description:"讀取 Excel（.xlsx/.xls）內容，回傳每格位址與值（公式會顯示公式與結果）。sheet 可選，max_rows 預設 100、上限 300。",props:{path:{type:"string"},sheet:{type:"string"},max_rows:{type:"number"}},req:["path"]},
+ {name:"diff_xlsx",description:"逐格比對兩個 Excel 檔（path_a 為舊、path_b 為新）並列出所有差異，sheet 可選。比對由程式完成，結果準確，請直接採用。",props:{path_a:{type:"string"},path_b:{type:"string"},sheet:{type:"string"}},req:["path_a","path_b"]},
+ {name:"update_xlsx",description:"修改 Excel 儲存格。cells 為物件，例如 {\"B2\":\"新值\",\"C3\":100,\"D4\":\"=SUM(A1:A3)\"}；預設另存為「原檔名_updated.xlsx」，可用 output_path 指定。",props:{path:{type:"string"},sheet:{type:"string"},cells:{type:"object"},output_path:{type:"string"}},req:["path","cells"]},
+ {name:"create_xlsx",description:"建立新的 Excel。rows 為二維陣列，例如 [[\"姓名\",\"分數\"],[\"小明\",90]]。",props:{path:{type:"string"},sheet:{type:"string"},rows:{type:"array",items:{type:"array",items:{}}}},req:["path","rows"]}
 ];
-const TN={list_dir:"列目錄",read_file:"讀檔",write_file:"寫檔",search:"搜尋",append_file:"附加",replace_in_file:"取代",delete_file:"刪檔"};
+const TN={list_dir:"列目錄",read_file:"讀檔",write_file:"寫檔",search:"搜尋",append_file:"附加",replace_in_file:"取代",delete_file:"刪檔",read_xlsx:"讀Excel",diff_xlsx:"比對Excel",update_xlsx:"更新Excel",create_xlsx:"建立Excel"};
 const TPL=[
+ {name:"Excel 比對與更新員",sys:"你負責處理 Excel。先用 read_xlsx 了解結構；比對差異一律使用 diff_xlsx（不要自己逐格比較）；需要修改時用 update_xlsx，預設另存新檔，並在回覆中以表格列出改了哪些儲存格。",tools:["list_dir","read_xlsx","diff_xlsx","update_xlsx","create_xlsx"]},
  {name:"研究員",sys:"你負責蒐集並整理資料，條列重點並標示來源檔名，不做無根據的推論。",tools:["list_dir","read_file","search"]},
  {name:"程式碼審查員",sys:"你審查程式碼的正確性、安全性與可讀性，依嚴重程度列出問題與修改建議，並引用檔名與行號。",tools:["list_dir","read_file","search"]},
  {name:"翻譯員",sys:"你負責忠實翻譯，保留格式與專有名詞，並將譯文寫入檔案。",tools:["read_file","write_file"]},
@@ -208,7 +213,7 @@ const llmFields=(p,o)=>provSel(p+".prov",o.prov)+(o.prov==="puter"?"":fld(p+".ba
 
 function render(){
   const L0=S.llms[S.cl],f=S.flows[S.cf],roleOpts=v=>S.roles.map(r=>`<option value="${r.id}"${r.id==v?" selected":""}>${esc(r.name)}</option>`).join("");
-  $("#side").innerHTML=`<h1>小蝦 v7 · 工作流</h1>
+  $("#side").innerHTML=`<h1>小蝦 v7.1 · 工作流</h1>
   <section><details open><summary>資料匣</summary>
     <button class="pri" data-act="pick" style="width:100%;margin-top:6px">選擇開放的資料匣</button>
     <div class="folder ${root?"":"bad"}">${esc(rootMsg)}</div>
@@ -411,9 +416,9 @@ async function dirAt(base,a,create){let d=base;for(const n of a)d=await d.getDir
 async function walk(d,pre,fn,c){for await(const [n,h] of d.entries()){if(c.n>400)return;if(h.kind==="directory"){if(n.startsWith(".")||n==="node_modules")continue;await walk(h,pre+n+"/",fn,c)}else{c.n++;await fn(h,pre+n)}}}
 const impl={
   async list_dir(b,{path}){const d=await dirAt(b,parts(path));const o=[];for await(const [n,h] of d.entries())o.push((h.kind==="directory"?"[資料夾] ":"[檔案] ")+n);return o.sort().join("\n")||"（空資料夾）"},
-  async read_file(b,{path}){const a=parts(path),n=a.pop();const t=await(await(await(await dirAt(b,a)).getFileHandle(n)).getFile()).text();return t.length>60000?t.slice(0,60000)+"\n…（已截斷）":t},
+  async read_file(b,{path}){const a=parts(path),n=a.pop();if(BIN.test(n))return /\.xls[xm]?$/i.test(n)?"這是 Excel 檔，無法當文字讀取。請改用 read_xlsx 讀取內容，或用 diff_xlsx 比對兩個檔案的差異。":"這是二進位檔，無法以文字讀取。";const t=await(await(await(await dirAt(b,a)).getFileHandle(n)).getFile()).text();return t.length>60000?t.slice(0,60000)+"\n…（已截斷）":t},
   async write_file(b,{path,content}){
-    const a=parts(path),n=a.pop();if(!n)throw new Error("缺少檔名");
+    const a=parts(path),n=a.pop();if(!n)throw new Error("缺少檔名");if(BIN.test(n))throw new Error("不可用文字方式寫入二進位檔（會損毀檔案）。Excel 請改用 create_xlsx 或 update_xlsx。");
     if(!S.autoWrite&&!confirm("寫入檔案：/"+[...a,n].join("/")+"（"+content.length+" 字）\n允許嗎？"))return "使用者拒絕寫入。";
     const w=await(await(await dirAt(b,a,true)).getFileHandle(n,{create:true})).createWritable();await w.write(content);await w.close();return "已寫入 /"+[...a,n].join("/")},
   async search(b,{query,path}){const q=query.toLowerCase(),out=[],pa=parts(path);
@@ -431,6 +436,54 @@ const impl={
     if(!confirm("刪除檔案 /"+[...a,n].join("/")+"？此操作無法復原。"))return "使用者拒絕刪除。";
     await(await dirAt(b,a)).removeEntry(n);return "已刪除 /"+[...a,n].join("/")}
 };
+
+/* ---------- Excel 工具（SheetJS） ---------- */
+const BIN=/\.(xlsx|xlsm|xls|docx|pptx|pdf|zip|png|jpe?g|gif|webp|exe|7z)$/i;
+let xlsxP=null;
+function loadXlsx(){if(window.XLSX)return Promise.resolve();if(xlsxP)return xlsxP;
+  const urls=["https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js","https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"];
+  xlsxP=(async()=>{for(const u of urls){try{await new Promise((ok,no)=>{const e=document.createElement("script");e.src=u;e.onload=ok;e.onerror=no;document.head.append(e)});if(window.XLSX)return}catch(e){}}throw new Error("無法載入 Excel 元件（SheetJS），請確認網路連線")})();
+  xlsxP.catch(()=>xlsxP=null);return xlsxP}
+async function wbOf(b,path){await loadXlsx();const a=parts(path),n=a.pop();const f=await(await(await dirAt(b,a)).getFileHandle(n)).getFile();return XLSX.read(await f.arrayBuffer(),{type:"array",cellFormula:true,cellDates:true})}
+const cv=c=>c==null?"":(c.w!=null?c.w:c.v);
+const cf=c=>c?(c.f?"="+c.f+"→"+cv(c):String(cv(c))):"";
+async function saveWb(b,path,wb){const a=parts(path),n=a.pop();const out=XLSX.write(wb,{type:"array",bookType:"xlsx"});const w=await(await(await dirAt(b,a,true)).getFileHandle(n,{create:true})).createWritable();await w.write(out);await w.close()}
+Object.assign(impl,{
+  async read_xlsx(b,{path,sheet,max_rows}){
+    const wb=await wbOf(b,path),names=sheet?[sheet]:wb.SheetNames,lim=Math.min(+max_rows||100,300);let o="工作表："+wb.SheetNames.join("、")+"\n";
+    for(const nm of names){const ws=wb.Sheets[nm];if(!ws){o+="\n找不到工作表："+nm+"\n";continue}
+      const rg=XLSX.utils.decode_range(ws["!ref"]||"A1");o+="\n## "+nm+"（範圍 "+(ws["!ref"]||"空")+"）\n";
+      for(let r=rg.s.r;r<=Math.min(rg.e.r,rg.s.r+lim-1);r++){const cells=[];for(let c=rg.s.c;c<=rg.e.c;c++){const k=XLSX.utils.encode_cell({r,c}),x=ws[k];if(x)cells.push(k+"="+cf(x))}if(cells.length)o+=cells.join(" | ")+"\n"}
+      if(rg.e.r-rg.s.r+1>lim)o+="…（僅顯示前 "+lim+" 列，可用 max_rows 調整，上限 300）\n"}
+    return o.slice(0,60000)},
+  async diff_xlsx(b,{path_a,path_b,sheet}){
+    const A=await wbOf(b,path_a),B=await wbOf(b,path_b),out=[];
+    const names=[...new Set([...A.SheetNames,...B.SheetNames])].filter(x=>!sheet||x===sheet);
+    for(const nm of names){const a=A.Sheets[nm],bb=B.Sheets[nm];
+      if(!a){out.push("【新增工作表】"+nm+"（僅在 B）");continue}if(!bb){out.push("【刪除工作表】"+nm+"（僅在 A）");continue}
+      const ra=XLSX.utils.decode_range(a["!ref"]||"A1"),rb=XLSX.utils.decode_range(bb["!ref"]||"A1"),er=Math.max(ra.e.r,rb.e.r),ec=Math.max(ra.e.c,rb.e.c);let n=0;
+      for(let r=0;r<=er&&out.length<400;r++)for(let c=0;c<=ec&&out.length<400;c++){const k=XLSX.utils.encode_cell({r,c}),x=cf(a[k]),y=cf(bb[k]);if(x!==y){n++;out.push(nm+"!"+k+"：A="+(x||"（空）")+" → B="+(y||"（空）"))}}
+      if(!n)out.push("【"+nm+"】兩邊內容相同")}
+    return (out.length>=400?"（差異過多，僅列前 400 筆）\n":"")+(out.join("\n")||"兩個檔案沒有差異")},
+  async update_xlsx(b,{path,sheet,cells,output_path}){
+    if(!cells||typeof cells!=="object")throw new Error('cells 必須是物件，例如 {"B2":"新值","C3":100}');
+    const wb=await wbOf(b,path),nm=sheet||wb.SheetNames[0];let ws=wb.Sheets[nm];
+    if(!ws){ws=XLSX.utils.aoa_to_sheet([[]]);XLSX.utils.book_append_sheet(wb,ws,nm)}
+    let n=0;
+    for(const [k,v] of Object.entries(cells)){if(!/^[A-Za-z]{1,3}[0-9]{1,7}$/.test(k))throw new Error("儲存格位址不正確："+k);const ad=k.toUpperCase();
+      ws[ad]=typeof v==="number"?{t:"n",v}:(typeof v==="string"&&v.startsWith("="))?{t:"n",f:v.slice(1),v:0,_f:1}:{t:"s",v:String(v)};n++;
+      const d=XLSX.utils.decode_cell(ad),rg=XLSX.utils.decode_range(ws["!ref"]||"A1");rg.e.r=Math.max(rg.e.r,d.r);rg.e.c=Math.max(rg.e.c,d.c);ws["!ref"]=XLSX.utils.encode_range(rg)}
+    const outp=output_path||path.replace(/(\.xls[xm]?)?$/i,"_updated.xlsx");
+    if(!S.autoWrite&&!confirm("更新 Excel：修改 "+n+" 格，另存為 /"+parts(outp).join("/")+"\n（注意：儲存格樣式可能無法完整保留）\n允許嗎？"))return "使用者拒絕寫入。";
+    const hasF=Object.values(cells).some(v=>typeof v==="string"&&v.startsWith("="));
+    if(hasF){wb.Workbook=wb.Workbook||{};wb.Workbook.CalcPr={fullCalcOnLoad:true}}
+    await saveWb(b,outp,wb);return "已修改 "+n+" 格，並儲存為 /"+parts(outp).join("/")+(hasF?"（含公式：結果會在用 Excel 開啟後重新計算，目前顯示的 0 只是占位）":"")},
+  async create_xlsx(b,{path,sheet,rows}){
+    if(!Array.isArray(rows))throw new Error('rows 必須是二維陣列，例如 [["姓名","分數"],["小明",90]]');
+    await loadXlsx();if(!/\.xlsx$/i.test(path))path+=".xlsx";
+    if(!S.autoWrite&&!confirm("建立 Excel：/"+parts(path).join("/")+"（"+rows.length+" 列）\n允許嗎？"))return "使用者拒絕寫入。";
+    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),sheet||"Sheet1");await saveWb(b,path,wb);return "已建立 /"+parts(path).join("/")}
+});
 
 /* ---------- LLM 轉接 ---------- */
 async function post(url,headers,body){
@@ -508,7 +561,7 @@ async function agent(role,msg,extraSys,tag){
   const h=[{r:"u",t:msg}];let last="";
   for(let i=0;i<(role.max||8);i++){
     setStat((tag||"")+" · "+role.name+" 第 "+(i+1)+" 輪：等待 AI 回應…");const r=await llm(cfg,h,tools,sys);h.push({r:"a",t:r.t,calls:r.calls});if(r.t)last=r.t;
-    if(!r.calls.length)return last;
+    if(!r.calls.length)return last||"（模型沒有回覆文字。若使用的是不支援工具的模型，請到 AI 設定把「工具呼叫方式」改為提示詞模式。）";
     const results=[];
     for(const c of r.calls){setStat((tag||"")+" · "+role.name+"：執行工具 "+c.name+" "+(c.args.path||""));let out;try{if(!role.tools.includes(c.name))throw new Error("此角色未被授權使用 "+c.name);out=String(await impl[c.name](base,c.args))}catch(e){out="錯誤："+(e.message||e)}
       results.push({id:c.id,name:c.name,args:c.args,out});T(c.name,c.args,out)}
