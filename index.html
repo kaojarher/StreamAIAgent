@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>小蝦 v12 · 多角色工作流</title>
+<title>小蝦 v13 · 多角色工作流</title>
 <style>
 :root{--bg:#f3f5f4;--panel:#fff;--ink:#17211f;--mute:#5d6b67;--line:#d6dddb;--accent:#0f6b5c;--accent-ink:#fff;--tool:#eef3f1;--warn:#a8431f;--soft:#e3efe9}
 @media (prefers-color-scheme:dark){:root{--bg:#121816;--panel:#1a2320;--ink:#e6eeeb;--mute:#93a39e;--line:#2b3733;--accent:#4fc3a8;--accent-ink:#06211b;--tool:#202b28;--warn:#e88b65;--soft:#22342e}}
@@ -164,7 +164,7 @@ const TOOLS=[
  {name:"delete_file",description:"刪除單一檔案（每次都需使用者確認）。",props:{path:{type:"string"}},req:["path"]},
  {name:"read_xlsx",description:"讀取 Excel（.xlsx/.xls）內容，回傳每格位址與值（公式會顯示公式與結果）。sheet 可選，max_rows 預設 100、上限 300。",props:{path:{type:"string"},sheet:{type:"string"},max_rows:{type:"number"}},req:["path"]},
  {name:"diff_xlsx",description:"逐格比對兩個 Excel 檔（path_a 為舊、path_b 為新）並列出所有差異，sheet 可選。比對由程式完成，結果準確，請直接採用。",props:{path_a:{type:"string"},path_b:{type:"string"},sheet:{type:"string"}},req:["path_a","path_b"]},
- {name:"update_xlsx",description:"修改 Excel 儲存格。cells 為物件，例如 {\"B2\":\"新值\",\"C3\":100,\"D4\":\"=SUM(A1:A3)\"}；預設另存為「原檔名_updated.xlsx」，可用 output_path 指定。",props:{path:{type:"string"},sheet:{type:"string"},cells:{type:"object"},output_path:{type:"string"}},req:["path","cells"]},
+ {name:"update_xlsx",description:"修改 Excel 儲存格。cells 為物件，例如 {\"B2\":\"新值\",\"C3\":100,\"D4\":\"=SUM(A1:A3)\"}；只修改指定儲存格，原有格式與樣式保留；預設另存為「原檔名_updated.xlsx」，要覆寫原檔請把 output_path 設為原檔名（修改前會自動備份）。",props:{path:{type:"string"},sheet:{type:"string"},cells:{type:"object"},output_path:{type:"string"}},req:["path","cells"]},
  {name:"create_xlsx",description:"建立新的 Excel。rows 為二維陣列，例如 [[\"姓名\",\"分數\"],[\"小明\",90]]。",props:{path:{type:"string"},sheet:{type:"string"},rows:{type:"array",items:{type:"array",items:{}}}},req:["path","rows"]},
  {name:"ask_user",description:"向使用者提問並等待回答。只有在資訊不足且無法自行判斷（例如檔名有歧義、需求有多種合理做法）時才使用；能自己查到的資訊不要問。options 可選，提供選項按鈕。",props:{question:{type:"string"},options:{type:"array",items:{type:"string"}}},req:["question"]},
  {name:"read_docx",description:"讀取 Word（.docx）的純文字內容（不含圖片與格式）。",props:{path:{type:"string"}},req:["path"]},
@@ -218,7 +218,7 @@ const llmFields=(p,o)=>provSel(p+".prov",o.prov)+(o.prov==="puter"?"":fld(p+".ba
 
 function render(){
   S.flows.forEach(x=>x.steps.forEach(st=>{st.cond=st.cond||{mode:"",text:"",end:false}}));const L0=S.llms[S.cl],f=S.flows[S.cf],roleOpts=v=>S.roles.map(r=>`<option value="${r.id}"${r.id==v?" selected":""}>${esc(r.name)}</option>`).join("");
-  $("#side").innerHTML=`<h1>小蝦 v12 · 工作流</h1>
+  $("#side").innerHTML=`<h1>小蝦 v13 · 工作流</h1>
   <section><details open><summary>資料匣</summary>
     <button class="pri" data-act="pick" style="width:100%;margin-top:6px">選擇開放的資料匣</button>
     <div class="folder ${root?"":"bad"}">${esc(rootMsg)}</div>
@@ -547,6 +547,73 @@ Object.assign(impl,{
   async ask_user(b,{question,options}){return askUser(question,options)}
 });
 
+/* ---------- XLSX 原格式更新：直接修改工作表 XML，不經過重新輸出 ---------- */
+let jzP=null;
+const loadJszip=()=>window.JSZip?Promise.resolve():(jzP=jzP||loadScript(["https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js","https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"],()=>window.JSZip,"無法載入 ZIP 元件（JSZip），請確認網路連線"));
+const outPathOf=(p,o)=>o||(/\.(xlsx|xlsm)$/i.test(p)?p.replace(/\.(xlsx|xlsm)$/i,"_updated.$1"):p.replace(/(\.xls)?$/i,"_updated.xlsx"));
+const colIdx=l=>l.toUpperCase().split("").reduce((a,c)=>a*26+c.charCodeAt(0)-64,0);
+const colName=x=>{let r="";while(x>0){r=String.fromCharCode(65+(x-1)%26)+r;x=Math.floor((x-1)/26)}return r};
+async function patchXlsx(buf,sheetName,cells){
+  await loadJszip();
+  const zip=await JSZip.loadAsync(buf),P=new DOMParser(),SZ=new XMLSerializer();
+  const rd=async p=>{const f=zip.file(p);return f?await f.async("string"):null};
+  const HEAD='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n',ser=d=>{const o=SZ.serializeToString(d);return /^<\?xml/.test(o)?o:HEAD+o};
+  const wbx=await rd("xl/workbook.xml"),rel=await rd("xl/_rels/workbook.xml.rels");
+  if(!wbx||!rel)throw new Error("不是有效的 .xlsx 檔（缺少 workbook.xml）");
+  const wdoc=P.parseFromString(wbx,"application/xml"),rdoc=P.parseFromString(rel,"application/xml");
+  const sheets=Array.from(wdoc.getElementsByTagName("sheet")),sh=sheetName?sheets.find(x=>x.getAttribute("name")===sheetName):sheets[0];
+  if(!sh)throw new Error("找不到工作表："+sheetName+"（現有："+sheets.map(x=>x.getAttribute("name")).join("、")+"）");
+  let rid=sh.getAttribute("r:id");if(!rid)for(const a of Array.from(sh.attributes))if(a.name!=="sheetId"&&/id$/i.test(a.name))rid=a.value;
+  const rl=Array.from(rdoc.getElementsByTagName("Relationship")).find(x=>x.getAttribute("Id")===rid);
+  if(!rl)throw new Error("找不到工作表的內部連結");
+  const tg=rl.getAttribute("Target"),spath=tg.startsWith("/")?tg.slice(1):"xl/"+tg,sx=await rd(spath);
+  if(!sx)throw new Error("找不到工作表檔案："+spath);
+  const doc=P.parseFromString(sx,"application/xml"),ns=doc.documentElement.namespaceURI,sd=doc.getElementsByTagName("sheetData")[0];
+  if(!sd)throw new Error("工作表結構異常");
+  const el=n=>doc.createElementNS(ns,n),kids=(p,n)=>Array.from(p.childNodes).filter(x=>x.nodeName===n);
+  let hasF=false,n=0,maxR=0,maxC=0;
+  for(const [k,v] of Object.entries(cells)){
+    const m=k.toUpperCase().match(/^([A-Z]{1,3})(\d+)$/);if(!m)throw new Error("儲存格位址不正確："+k);
+    const ci=colIdx(m[1]),ri=+m[2];maxR=Math.max(maxR,ri);maxC=Math.max(maxC,ci);
+    let row=kids(sd,"row").find(x=>+x.getAttribute("r")===ri);
+    if(!row){row=el("row");row.setAttribute("r",String(ri));const nx=kids(sd,"row").find(x=>+x.getAttribute("r")>ri);nx?sd.insertBefore(row,nx):sd.appendChild(row)}
+    row.removeAttribute("spans");
+    const ref=m[1]+ri;let c=kids(row,"c").find(x=>x.getAttribute("r").toUpperCase()===ref);
+    if(!c){c=el("c");c.setAttribute("r",ref);const nx=kids(row,"c").find(x=>colIdx(x.getAttribute("r").match(/^[A-Za-z]+/)[0])>ci);nx?row.insertBefore(c,nx):row.appendChild(c)}
+    while(c.firstChild)c.removeChild(c.firstChild);c.removeAttribute("t");
+    if(typeof v==="number"&&isFinite(v)){const e=el("v");e.appendChild(doc.createTextNode(String(v)));c.appendChild(e)}
+    else if(typeof v==="boolean"){c.setAttribute("t","b");const e=el("v");e.appendChild(doc.createTextNode(v?"1":"0"));c.appendChild(e)}
+    else if(typeof v==="string"&&v.startsWith("=")){const e=el("f");e.appendChild(doc.createTextNode(v.slice(1)));c.appendChild(e);hasF=true}
+    else if(v!==null&&v!==undefined&&String(v)!==""){c.setAttribute("t","inlineStr");const is=el("is"),t=el("t");t.setAttributeNS("http://www.w3.org/XML/1998/namespace","xml:space","preserve");t.appendChild(doc.createTextNode(String(v)));is.appendChild(t);c.appendChild(is)}
+    n++}
+  const dim=doc.getElementsByTagName("dimension")[0];
+  if(dim){const mm=(dim.getAttribute("ref")||"").match(/^([A-Z]+)(\d+)(?::([A-Z]+)(\d+))?$/);
+    if(mm){const c2=mm[3]?colIdx(mm[3]):colIdx(mm[1]),r2=mm[4]?+mm[4]:+mm[2];if(maxC>c2||maxR>r2)dim.setAttribute("ref",mm[1]+mm[2]+":"+colName(Math.max(c2,maxC))+Math.max(r2,maxR))}}
+  zip.file(spath,ser(doc));
+  if(hasF){let cp=wdoc.getElementsByTagName("calcPr")[0];
+    if(!cp){cp=wdoc.createElementNS(wdoc.documentElement.namespaceURI,"calcPr");const after=["oleSize","customWorkbookViews","pivotCaches","smartTagPr","smartTagTypes","webPublishing","fileRecoveryPr","webPublishObjects","extLst"];
+      const nx=Array.from(wdoc.documentElement.childNodes).find(x=>after.includes(x.nodeName));nx?wdoc.documentElement.insertBefore(cp,nx):wdoc.documentElement.appendChild(cp)}
+    cp.setAttribute("fullCalcOnLoad","1");zip.file("xl/workbook.xml",ser(wdoc))}
+  if(zip.file("xl/calcChain.xml")){
+    zip.remove("xl/calcChain.xml");
+    const ct=await rd("[Content_Types].xml");
+    if(ct){const cd=P.parseFromString(ct,"application/xml");Array.from(cd.getElementsByTagName("Override")).filter(x=>x.getAttribute("PartName")==="/xl/calcChain.xml").forEach(x=>x.parentNode.removeChild(x));zip.file("[Content_Types].xml",ser(cd))}
+    Array.from(rdoc.getElementsByTagName("Relationship")).filter(x=>/\/calcChain$/.test(x.getAttribute("Type")||"")).forEach(x=>x.parentNode.removeChild(x));zip.file("xl/_rels/workbook.xml.rels",ser(rdoc))}
+  const data=await zip.generateAsync({type:"uint8array",compression:"DEFLATE"});
+  if(typeof XLSX!=="undefined"){try{XLSX.read(data,{type:"array"})}catch(e){throw new Error("產生的檔案驗證失敗，已取消寫入："+e.message)}}
+  return{data,n,hasF}}
+const oldUpdateXlsx=impl.update_xlsx;
+impl.update_xlsx=async function(b,args){
+  const{path,sheet,cells,output_path}=args;
+  if(!cells||typeof cells!=="object")throw new Error('cells 必須是物件，例如 {"B2":"新值","C3":100}');
+  if(!/\.(xlsx|xlsm)$/i.test(path||""))return (await oldUpdateXlsx(b,args))+"（注意：這是舊版 .xls，只能用轉檔方式儲存，樣式可能遺失）";
+  await loadXlsx();
+  const outp=outPathOf(path,output_path);
+  if(!S.autoWrite&&!args.__ok&&!confirm("更新 Excel：修改 "+Object.keys(cells).length+" 格，儲存為 /"+parts(outp).join("/")+"\n允許嗎？"))return "使用者拒絕寫入。";
+  const r=await patchXlsx(await bufOf(b,path),sheet,cells);
+  const a=parts(outp),nm=a.pop(),w=await(await(await dirAt(b,a,true)).getFileHandle(nm,{create:true})).createWritable();await w.write(r.data);await w.close();
+  return "已修改 "+r.n+" 格，並儲存為 /"+parts(outp).join("/")+"（原有格式、樣式、合併儲存格、圖表等都已保留；新建立的儲存格不會自動套用樣式）"+(r.hasF?"；含公式：Excel 開啟時會自動重新計算":"")};
+
 /* ---------- LLM 轉接 ---------- */
 async function readStream(r,url,onText){
   const rd=r.body.getReader(),dec=new TextDecoder(),anth=/\/messages$/.test(url),calls=[],blocks=[];let buf="",txt="";
@@ -862,7 +929,7 @@ async function previewOf(base,name,g){
   if(name==="append_file")return "在檔案末尾附加：\n"+diffText("",ct);
   if(name==="replace_in_file")return "取代第一處：\n- "+String(g.find||"").slice(0,300)+"\n+ "+String(g.replace||"").slice(0,300);
   if(name==="delete_file"){const o=await readText(base,p);return "將刪除此檔案"+(o!=null?"（約 "+o.length+" 字）":"")+"。刪除前會自動備份到 _backup。"}
-  if(name==="update_xlsx"){try{const wb=await wbOf(base,p),ws=wb.Sheets[g.sheet||wb.SheetNames[0]]||{};return "修改 Excel 儲存格（另存為 "+(g.output_path||p.replace(/(\.xls[xm]?)?$/i,"_updated.xlsx"))+"）：\n"+Object.entries(g.cells||{}).slice(0,60).map(([k,v])=>k.toUpperCase()+"："+(cf(ws[k.toUpperCase()])||"（空）")+" → "+v).join("\n")}catch(e){return "（無法預覽："+e.message+"）"}}
+  if(name==="update_xlsx"){try{const wb=await wbOf(base,p),ws=wb.Sheets[g.sheet||wb.SheetNames[0]]||{};return "修改 Excel 儲存格（另存為 "+outPathOf(p,g.output_path)+"）：\n"+Object.entries(g.cells||{}).slice(0,60).map(([k,v])=>k.toUpperCase()+"："+(cf(ws[k.toUpperCase()])||"（空）")+" → "+v).join("\n")}catch(e){return "（無法預覽："+e.message+"）"}}
   if(name==="create_xlsx")return "建立 Excel "+p+"，共 "+(Array.isArray(g.rows)?g.rows.length:0)+" 列；前幾列：\n"+(Array.isArray(g.rows)?g.rows:[]).slice(0,5).map(r=>JSON.stringify(r)).join("\n");
   return ""}
 function approve(title,detail,danger){
@@ -887,7 +954,7 @@ async function guarded(base,role,c){
   const ok=await approve((TN[c.name]||c.name)+"：/"+[role.dir,A.path||A.output_path].filter(Boolean).join("/"),await previewOf(base,c.name,A),c.name==="delete_file");
   if(!ok)return "使用者拒絕寫入。";
   let tg=[A.path];
-  if(c.name==="update_xlsx")tg=[A.output_path||String(A.path||"").replace(/(\.xls[xm]?)?$/i,"_updated.xlsx")];
+  if(c.name==="update_xlsx")tg=[outPathOf(A.path||"",A.output_path)];
   if(c.name==="create_xlsx")tg=[/\.xlsx$/i.test(A.path||"")?A.path:(A.path||"")+".xlsx"];
   for(const t of tg)await backup(base,role,t);
   return impl[c.name](base,{...A,__ok:1})}
